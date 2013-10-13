@@ -15,6 +15,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <poll.h>
 #include "worker-thread.h"
 #include "urcu-game.h"
 
@@ -51,8 +52,7 @@ void *worker_thread_fct(void *data)
 		node = __cds_wfcq_dequeue_blocking(&wt->q_head, &wt->q_tail);
 		if (!node) {
 			/* Wait for work */
-			DBG("Thread id=%lu waiting for work.", wt->id);
-			sleep(1);	/* TODO */
+			poll(NULL, 0, 100);	/* 100ms delay */
 			continue;
 		}
 		work = caa_container_of(node, struct urcu_game_work, q_node);

@@ -100,7 +100,8 @@ int create_input_thread(void);
 int join_input_thread(void);
 int create_output_thread(void);
 int join_output_thread(void);
-
+int create_dispatch_thread(void);
+int join_dispatch_thread(void);
 
 /* Helpers */
 
