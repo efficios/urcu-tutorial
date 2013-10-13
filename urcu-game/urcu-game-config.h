@@ -28,9 +28,15 @@
 struct urcu_game_config *urcu_game_config_get(void);
 
 /*
- * urcu_game_config_set updates the current configuration.
- * Returns 0 if OK, -1 on error (out of memory).
+ * An internal mutex is held if urcu_game_config_update_begin() returns
+ * non-NULL. If begin returns non-NULL, it needs to be followed by a
+ * urcu_game_config_update_end(). The configuration is updated when
+ * urcu_game_config_update_end() is called.
+ * urcu_game_config_update_abort() can be called to abort an update
+ * (instead of calling "end").
  */
-int urcu_game_config_set(const struct urcu_game_config *config);
+struct urcu_game_config *urcu_game_config_update_begin(void);
+void urcu_game_config_update_end(struct urcu_game_config *new_config);
+void urcu_game_config_update_abort(struct urcu_game_config *new_config);
 
 #endif /* URCU_GAME_CONFIG_H */

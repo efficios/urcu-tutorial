@@ -21,8 +21,16 @@
 
 #include "urcu-game-config.h"
 
+/*
+ * Game configuration is protected against concurrent updates using a
+ * mutex. It is read by many concurrent threads, using RCU to
+ * synchronize.
+ */
 static
 struct urcu_game_config *current_config;
+
+static
+pthread_mutex_t config_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static
 void config_free(struct rcu_head *head)
@@ -40,17 +48,38 @@ struct urcu_game_config *urcu_game_config_get(void)
 	return rcu_dereference(current_config);
 }
 
-int urcu_game_config_set(const struct urcu_game_config *config)
+/*
+ * config_mutex is held if urcu_game_config_update_begin() returns
+ * non-NULL. It needs to be followed by a urcu_game_config_update_end().
+ * Holding the mutex across begin and end ensures the configuration is
+ * not modified concurrently.
+ */
+struct urcu_game_config *urcu_game_config_update_begin(void)
 {
-	struct urcu_game_config *old_config, *new_config;
+	struct urcu_game_config *new_config;
 
 	new_config = malloc(sizeof(*new_config));
 	if (!new_config) {
-		return -1;
+		return NULL;
 	}
-	memcpy(new_config, config, sizeof(*new_config));
-	old_config = rcu_xchg_pointer(&current_config, new_config);
+	pthread_mutex_lock(&config_mutex);
+	memcpy(new_config, current_config, sizeof(*new_config));
+	return new_config;
+}
+
+void urcu_game_config_update_end(struct urcu_game_config *new_config)
+{
+	struct urcu_game_config *old_config;
+
+	old_config = current_config;
+	rcu_set_pointer(&current_config, new_config);
+	pthread_mutex_unlock(&config_mutex);
 	if (old_config)
 		call_rcu(&old_config->rcu_head, config_free);
-	return 0;
+}
+
+void urcu_game_config_update_abort(struct urcu_game_config *new_config)
+{
+	pthread_mutex_unlock(&config_mutex);
+	free(new_config);
 }
