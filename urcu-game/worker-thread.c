@@ -148,7 +148,10 @@ int enqueue_work(unsigned long thread_nr, struct urcu_game_work *work)
 	was_non_empty = cds_wfcq_enqueue(&worker->q_head,
 			&worker->q_tail, &work->q_node);
 	if (!was_non_empty) {
-		/* TODO: wakeup */
+		/*
+		 * TODO: currently using polling scheme. Could do a
+		 * wakeup scheme with sys_futex instead.
+		 */
 	}
 	return 0;
 }
