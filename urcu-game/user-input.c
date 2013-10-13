@@ -110,6 +110,32 @@ end:
 }
 
 static
+void get_config_entry_uint64(const char *name,
+		uint64_t *value)
+{
+	uint64_t new_size;
+	char read_buf[4096];
+	int ret;
+
+	fflush(stdin);
+	printf("Enter new %s\n", name);
+	ret = readline_unbuf(0, read_buf, sizeof(read_buf));
+	if (ret < 0) {
+		fprintf(stderr, "Error: expected digital input for %s\n",
+			name);
+		return;
+	}
+	ret = sscanf(read_buf, "%" SCNu64, &new_size);
+	if (ret != 1) {
+		perror("fscanf");
+		fprintf(stderr, "Error: expected digital input for %s\n",
+			name);
+		return;
+	}
+	*value = new_size;
+}
+
+static
 void do_config(void)
 {
 	struct urcu_game_config *new_config;
@@ -125,12 +151,15 @@ void do_config(void)
 
 	for (;;) {
 		printf("\n");
+		printf("[ root > configuration ]\n");
 		printf("Enter the config field you wish to update:\n");
 		printf(" key	Description\n");
 		printf("---------------------------------\n");
 		printf("  q	Cancel update\n");
 		printf("  s	Save update and exit configuration menu\n");
 		printf("  i	Island size (%" PRIu64 ")\n", new_config->island_size);
+		printf("  f	Flowers (%" PRIu64 ")\n", new_config->vegetation.flowers);
+		printf("  t	Trees (%" PRIu64 ")\n", new_config->vegetation.trees);
 
 		ret = getch(&key);
 		if (ret < 0)
@@ -148,26 +177,18 @@ void do_config(void)
 			urcu_game_config_update_abort(new_config);
 			goto end;
 		case 'i':	/* island size */
-		{
-			uint64_t new_size;
-			char read_buf[4096];
-
-			fflush(stdin);
-			printf("Enter new island size: \n");
-			ret = readline_unbuf(0, read_buf, sizeof(read_buf));
-			if (ret < 0) {
-				fprintf(stderr, "Error: expected digital input for island size\n");
-				break;
-			}
-			ret = sscanf(read_buf, "%" SCNu64, &new_size);
-			if (ret != 1) {
-				perror("fscanf");
-				fprintf(stderr, "Error: expected digital input for island size\n");
-				break;
-			}
-			new_config->island_size = new_size;
+			get_config_entry_uint64("island size",
+				&new_config->island_size);
 			break;
-		}
+		case 'f':	/* flowers */
+			get_config_entry_uint64("flower vegetation",
+				&new_config->vegetation.flowers);
+			break;
+		case 't':	/* trees */
+			get_config_entry_uint64("tree vegetation",
+				&new_config->vegetation.trees);
+			break;
+
 			/* TODO other keys */
 		default:
 			printf("Unknown key: \'%c\'\n", key);
@@ -185,6 +206,7 @@ void show_menu(void)
 {
 	pthread_mutex_lock(&print_output_mutex);
 	printf("\n");
+	printf("[ root ]\n");
 	printf(" key	Description\n");
 	printf("---------------------------------\n");
 	printf("  m	Show menu\n");
@@ -223,7 +245,7 @@ void *input_thread_fct(void *data)
 			break;	/* show menu */
 			/* TODO other keys */
 		default:
-			printf("Unknown key: \'%c\'", key);
+			printf("Unknown key: \'%c\'\n", key);
 			break;
 		}
 	}
