@@ -39,4 +39,6 @@ struct urcu_game_config *urcu_game_config_update_begin(void);
 void urcu_game_config_update_end(struct urcu_game_config *new_config);
 void urcu_game_config_update_abort(struct urcu_game_config *new_config);
 
+void init_game_config(void);
+
 #endif /* URCU_GAME_CONFIG_H */

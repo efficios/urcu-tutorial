@@ -47,6 +47,14 @@ struct vegetation {
 	uint64_t trees;
 };
 
+#define DEFAULT_ISLAND_SIZE			\
+	2 * (DEFAULT_VEGETATION_FLOWERS + DEFAULT_VEGETATION_TREES)
+#define DEFAULT_GERBIL_MAX_BIRTH_STAMINA	70
+#define DEFAULT_CAT_MAX_BIRTH_STAMINA		80
+#define DEFAULT_SNAKE_MAX_BIRTH_STAMINA		30
+#define DEFAULT_VEGETATION_FLOWERS		1000
+#define DEFAULT_VEGETATION_TREES		200
+
 struct urcu_game_config {
 	uint64_t island_size;	/* max number of animals on the island */
 

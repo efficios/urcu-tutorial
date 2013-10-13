@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <urcu.h>
 #include "urcu-game.h"
+#include "urcu-game-config.h"
 #include "worker-thread.h"
 
 static
@@ -80,6 +81,8 @@ int main(int argc, char **argv)
 
 	printf("Spawning %ld worker threads.\n",
 		nr_worker_threads);
+
+	init_game_config();
 
 	err = create_worker_threads(nr_worker_threads);
 	if (err)

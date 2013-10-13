@@ -184,9 +184,18 @@ void do_config(void)
 			urcu_game_config_update_abort(new_config);
 			goto end;
 		case 'i':	/* island size */
-			get_config_entry_uint64("island size",
-				&new_config->island_size);
+		{
+			uint64_t new_size;
+
+			get_config_entry_uint64("island size (increase only)",
+				&new_size);
+			if (new_size <= new_config->island_size) {
+				printf("Error: Island size can only be increased.\n");
+				break;
+			}
+			new_config->island_size = new_size;
 			break;
+		}
 		case 'f':	/* flowers */
 			get_config_entry_uint64("flower vegetation",
 				&new_config->vegetation.flowers);
