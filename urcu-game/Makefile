@@ -15,17 +15,36 @@ CC = gcc
 CFLAGS = -g -O2 -Wall
 LIBS = -lurcu
 
+HEADERS = urcu-game.h urcu-game-config.h worker-thread.h
+
 all: urcu-game
 
-urcu-game: urcu-game.o urcu-game-config.o
+urcu-game: urcu-game.o urcu-game-config.o worker-thread.o user-input.o \
+		print-output.o dispatch-thread.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $(AM_CFLAGS) $(AM_LDFLAGS) \
 		-o $@ $+ $(LIBS)
 
-urcu-game.o: urcu-game.c urcu-game-config.h
+urcu-game.o: urcu-game.c $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(AM_CPPFLAGS) $(AM_CFLAGS) \
 		-c -o $@ $<
 
-urcu-game-config.o: urcu-game-config.c urcu-game-config.h
+urcu-game-config.o: urcu-game-config.c $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(AM_CPPFLAGS) $(AM_CFLAGS) \
+		-c -o $@ $<
+
+worker-thread.o: worker-thread.c $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(AM_CPPFLAGS) $(AM_CFLAGS) \
+		-c -o $@ $<
+
+user-input.o: user-input.c $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(AM_CPPFLAGS) $(AM_CFLAGS) \
+		-c -o $@ $<
+
+print-output.o: print-output.c $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(AM_CPPFLAGS) $(AM_CFLAGS) \
+		-c -o $@ $<
+
+dispatch-thread.o: dispatch-thread.c $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(AM_CPPFLAGS) $(AM_CFLAGS) \
 		-c -o $@ $<
 

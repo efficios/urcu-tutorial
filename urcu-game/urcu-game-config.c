@@ -15,13 +15,14 @@
 
 #include <pthread.h>
 #include <stdlib.h>
+#include <string.h>
 #include <urcu.h>
 #include <urcu/compiler.h>
 
 #include "urcu-game-config.h"
 
 static
-struct urcu_game_config *config;
+struct urcu_game_config *current_config;
 
 static
 void config_free(struct rcu_head *head)
@@ -36,10 +37,10 @@ struct urcu_game_config *urcu_game_config_get(void)
 {
 	assert(rcu_read_ongoing());
 
-	return rcu_dereference(config);
+	return rcu_dereference(current_config);
 }
 
-int urcu_game_config_set(int a, int b)
+int urcu_game_config_set(const struct urcu_game_config *config)
 {
 	struct urcu_game_config *old_config, *new_config;
 
@@ -47,9 +48,8 @@ int urcu_game_config_set(int a, int b)
 	if (!new_config) {
 		return -1;
 	}
-	new_config->a = a;
-	new_config->b = b;
-	old_config = rcu_xchg_pointer(&config, new_config);
+	memcpy(new_config, config, sizeof(*new_config));
+	old_config = rcu_xchg_pointer(&current_config, new_config);
 	if (old_config)
 		call_rcu(&old_config->rcu_head, config_free);
 	return 0;

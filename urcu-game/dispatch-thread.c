@@ -1,5 +1,5 @@
 /*
- * print-output.c
+ * dispatch-thread.c
  *
  * Copyright (C) 2013  Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  *
@@ -14,45 +14,48 @@
  */
 
 #include <unistd.h>
-#include <stdio.h>
 #include <urcu/system.h>
 #include "urcu-game.h"
+#include "worker-thread.h"
 
 static
-pthread_t output_thread_id;
+pthread_t dispatch_thread_id;
 
 static
-void *output_thread_fct(void *data)
+void *dispatch_thread_fct(void *data)
 {
-	DBG("In user output thread.");
+	DBG("In user dispatch thread.");
 
 	/* Read keys typed by the user */
 	while (!CMM_LOAD_SHARED(exit_program)) {
-		DBG("Refresh screen.");
-		sleep(URCU_GAME_REFRESH_PERIOD);
+		DBG("Dispatch.");
+		sleep(1);	/* TODO */
 	}
 
-	DBG("User output thread exiting.");
+	/* Send worker thread stop message */
+	stop_worker_threads();
+
+	DBG("User dispatch thread exiting.");
 	return NULL;
 }
 
-int create_output_thread(void)
+int create_dispatch_thread(void)
 {
 	int err;
 
-	err = pthread_create(&output_thread_id, NULL,
-		output_thread_fct, NULL);
+	err = pthread_create(&dispatch_thread_id, NULL,
+		dispatch_thread_fct, NULL);
 	if (err)
 		abort();
 	return 0;
 }
 
-int join_output_thread(void)
+int join_dispatch_thread(void)
 {
 	int ret;
 	void *tret;
 
-	ret = pthread_join(output_thread_id, &tret);
+	ret = pthread_join(dispatch_thread_id, &tret);
 	if (ret)
 		abort();
 	return 0;

@@ -16,14 +16,9 @@
  * the code was modified is included with the above copyright notice.
  */
 
+#include <stdint.h>
 #include <urcu-call-rcu.h>	/* rcu_head */
-
-struct urcu_game_config {
-	int a;
-	int b;
-
-	struct rcu_head rcu_head;	/* Delayed reclaim */
-};
+#include "urcu-game.h"
 
 /*
  * urcu_game_config_get needs to be called within RCU read-side
@@ -36,6 +31,6 @@ struct urcu_game_config *urcu_game_config_get(void);
  * urcu_game_config_set updates the current configuration.
  * Returns 0 if OK, -1 on error (out of memory).
  */
-int urcu_game_config_set(int a, int b);
+int urcu_game_config_set(const struct urcu_game_config *config);
 
 #endif /* URCU_GAME_CONFIG_H */
