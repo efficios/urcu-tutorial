@@ -38,7 +38,6 @@ enum diet_mask {
 
 struct animal_kind {
 	uint64_t max_birth_stamina;	/* Animal healtiness on birth */
-	uint64_t birth_rate;
 	enum animal_types animal;
 	unsigned int diet;
 };

@@ -157,10 +157,16 @@ void do_config(void)
 		printf(" key	Description\n");
 		printf("---------------------------------\n");
 		printf("  q	Cancel update\n");
-		printf("  s	Save update and exit configuration menu\n");
+		printf("  x	Save update and exit configuration menu\n");
 		printf("  i	Island size (%" PRIu64 ")\n", new_config->island_size);
 		printf("  f	Flowers (%" PRIu64 ")\n", new_config->vegetation.flowers);
 		printf("  t	Trees (%" PRIu64 ")\n", new_config->vegetation.trees);
+		printf("  g	Gerbil max birth stamina (%" PRIu64 ")\n",
+				new_config->gerbil.max_birth_stamina);
+		printf("  c	Cat max birth stamina (%" PRIu64 ")\n",
+				new_config->cat.max_birth_stamina);
+		printf("  s	Snake max birth stamina (%" PRIu64 ")\n",
+				new_config->snake.max_birth_stamina);
 
 		ret = getch(&key);
 		if (ret < 0)
@@ -169,7 +175,7 @@ void do_config(void)
 		DBG("User input: \'%c\'", key);
 
 		switch(key) {
-		case 's':	/* save and quit */
+		case 'x':	/* save and quit */
 			printf("Configuration saved.\n");
 			urcu_game_config_update_end(new_config);
 			goto end;
@@ -189,8 +195,18 @@ void do_config(void)
 			get_config_entry_uint64("tree vegetation",
 				&new_config->vegetation.trees);
 			break;
-
-			/* TODO other keys */
+		case 'g':	/* gerbil stamina */
+			get_config_entry_uint64("gerbil stamina",
+				&new_config->gerbil.max_birth_stamina);
+			break;
+		case 'c':	/* cat stamina */
+			get_config_entry_uint64("cat stamina",
+				&new_config->cat.max_birth_stamina);
+			break;
+		case 's':	/* snake stamina */
+			get_config_entry_uint64("snake stamina",
+				&new_config->snake.max_birth_stamina);
+			break;
 		default:
 			printf("Unknown key: \'%c\'\n", key);
 			break;
