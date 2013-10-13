@@ -24,6 +24,8 @@ long nr_worker_threads = 8;
 
 int verbose, exit_program;
 
+struct live_animals live_animals;
+
 void show_usage(int argc, char **argv)
 {
 	printf("Usage: %s <options>\n", argv[0]);
@@ -73,6 +75,8 @@ int main(int argc, char **argv)
 {
 	int err;
 
+	rcu_register_thread();
+
 	err = parse_args(argc, argv);
 	if (err)
 		goto end;
@@ -83,6 +87,23 @@ int main(int argc, char **argv)
 		nr_worker_threads);
 
 	init_game_config();
+
+	live_animals.all = cds_lfht_new(4096, 1, 0,
+		CDS_LFHT_AUTO_RESIZE | CDS_LFHT_ACCOUNTING, NULL);
+	if (!live_animals.all)
+		abort();
+	live_animals.gerbil = cds_lfht_new(4096, 1, 0,
+		CDS_LFHT_AUTO_RESIZE | CDS_LFHT_ACCOUNTING, NULL);
+	if (!live_animals.gerbil)
+		abort();
+	live_animals.cat = cds_lfht_new(4096, 1, 0,
+		CDS_LFHT_AUTO_RESIZE | CDS_LFHT_ACCOUNTING, NULL);
+	if (!live_animals.cat)
+		abort();
+	live_animals.snake = cds_lfht_new(4096, 1, 0,
+		CDS_LFHT_AUTO_RESIZE | CDS_LFHT_ACCOUNTING, NULL);
+	if (!live_animals.snake)
+		abort();
 
 	err = create_worker_threads(nr_worker_threads);
 	if (err)
@@ -116,9 +137,23 @@ int main(int argc, char **argv)
 	if (err)
 		goto end;
 
+	err = cds_lfht_destroy(live_animals.snake, NULL);
+	if (err)
+		goto end;
+	err = cds_lfht_destroy(live_animals.cat, NULL);
+	if (err)
+		goto end;
+	err = cds_lfht_destroy(live_animals.gerbil, NULL);
+	if (err)
+		goto end;
+	err = cds_lfht_destroy(live_animals.all, NULL);
+	if (err)
+		goto end;
+
 	printf("Goodbye!\n");
 
 end:
+	rcu_unregister_thread();
 	if (err) {
 		fprintf(stderr, "Something went wrong!\n");
 		exit(EXIT_FAILURE);

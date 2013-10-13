@@ -101,6 +101,8 @@ struct live_animals {
 
 /* Threads */
 
+extern struct live_animals live_animals;
+
 extern int exit_program;
 extern int hide_output;
 extern pthread_mutex_t print_output_mutex;
