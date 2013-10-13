@@ -23,21 +23,23 @@
 #define URCU_GAME_REFRESH_PERIOD	1	/* seconds */
 
 enum animal_types {
-	GERBIL,
-	CAT,
-	SNAKE,
+	GERBIL = 	0,
+	CAT = 		1,
+	SNAKE = 	2,
 };
 
 enum diet_mask {
-	DIET_GERBIL =	(1U << 0),
-	DIET_CAT =	(1U << 1),
-	DIET_SNAKE =	(1U << 2),
+	DIET_GERBIL =	(1U << GERBIL),
+	DIET_CAT =	(1U << CAT),
+	DIET_SNAKE =	(1U << SNAKE),
+
 	DIET_FLOWERS =	(1U << 3),
 	DIET_TREES =	(1U << 4),
 };
 
 struct animal_kind {
 	uint64_t max_birth_stamina;	/* Animal healtiness on birth */
+	uint64_t max_pregnant;
 	enum animal_types animal;
 	unsigned int diet;
 };
@@ -69,6 +71,11 @@ struct urcu_game_config {
 	struct rcu_head rcu_head;	/* Delayed reclaim */
 };
 
+enum animal_sex {
+	ANIMAL_MALE,
+	ANIMAL_FEMALE,
+};
+
 /*
  * Animal struct existence is guaranteed by RCU. Mutual exclusion
  * against concurrent updaters is done by holding the lock. Holding the
@@ -78,8 +85,12 @@ struct urcu_game_config {
 struct animal {
 	struct animal_kind kind;
 
+	enum animal_sex animal_sex;
+	uint64_t key;			/* animal key in hash table */
 	uint64_t stamina;
 	uint64_t hungriness;
+
+	uint64_t nr_pregnant;
 
 	pthread_mutex_t lock;		/* mutual exclusion on animal */
 	struct cds_lfht_node kind_node;	/* node in kind hash table */
@@ -97,6 +108,8 @@ struct live_animals {
 	struct cds_lfht *snake;
 
 	struct cds_lfht *all;
+
+	unsigned long ht_seed;
 };
 
 /* Threads */

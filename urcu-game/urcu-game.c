@@ -15,6 +15,7 @@
 
 #include <stdio.h>
 #include <urcu.h>
+#include <time.h>
 #include "urcu-game.h"
 #include "urcu-game-config.h"
 #include "worker-thread.h"
@@ -87,6 +88,8 @@ int main(int argc, char **argv)
 		nr_worker_threads);
 
 	init_game_config();
+
+	live_animals.ht_seed = time(NULL);
 
 	live_animals.all = cds_lfht_new(4096, 1, 0,
 		CDS_LFHT_AUTO_RESIZE | CDS_LFHT_ACCOUNTING, NULL);

@@ -38,6 +38,9 @@ struct worker_thread {
 struct urcu_game_work {
 	struct cds_wfcq_node q_node;	/* work queue node */
 
+	uint64_t first_key;
+	uint64_t second_key;
+
 	int exit_thread;
 	/*
 	 * Align work on cache line size to eliminate false-sharing.

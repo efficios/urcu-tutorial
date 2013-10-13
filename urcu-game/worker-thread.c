@@ -16,8 +16,99 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <poll.h>
+#include <time.h>
+#include <stdint.h>
+#include <urcu.h>
 #include "worker-thread.h"
 #include "urcu-game.h"
+
+/*
+ * Hash function
+ * Source: http://burtleburtle.net/bob/c/lookup3.c
+ * Originally Public Domain
+ */
+
+#define rot(x, k) (((x) << (k)) | ((x) >> (32 - (k))))
+
+#define mix(a, b, c) \
+do { \
+	a -= c; a ^= rot(c,  4); c += b; \
+	b -= a; b ^= rot(a,  6); a += c; \
+	c -= b; c ^= rot(b,  8); b += a; \
+	a -= c; a ^= rot(c, 16); c += b; \
+	b -= a; b ^= rot(a, 19); a += c; \
+	c -= b; c ^= rot(b,  4); b += a; \
+} while (0)
+
+#define final(a, b, c) \
+{ \
+	c ^= b; c -= rot(b, 14); \
+	a ^= c; a -= rot(c, 11); \
+	b ^= a; b -= rot(a, 25); \
+	c ^= b; c -= rot(b, 16); \
+	a ^= c; a -= rot(c,  4);\
+	b ^= a; b -= rot(a, 14); \
+	c ^= b; c -= rot(b, 24); \
+}
+
+static inline
+void hashword2(
+	const uint32_t *k,	/* the key, an array of uint32_t values */
+	size_t length,		/* the length of the key, in uint32_ts */
+	uint32_t *pc,		/* IN: seed OUT: primary hash value */
+	uint32_t *pb)		/* IN: more seed OUT: secondary hash value */
+{
+	uint32_t a, b, c;
+
+	/* Set up the internal state */
+	a = b = c = 0xdeadbeef + ((uint32_t) (length << 2)) + *pc;
+	c += *pb;
+
+	/*----------------------------------------- handle most of the key */
+	while (length > 3) {
+		a += k[0];
+		b += k[1];
+		c += k[2];
+		mix(a, b, c);
+		length -= 3;
+		k += 3;
+	}
+
+	/*----------------------------------- handle the last 3 uint32_t's */
+	switch (length) {	/* all the case statements fall through */
+	case 3: c += k[2];
+	case 2: b += k[1];
+	case 1: a += k[0];
+		final(a, b, c);
+	case 0:			/* case 0: nothing left to add */
+		break;
+	}
+	/*---------------------------------------------- report the result */
+	*pc = c;
+	*pb = b;
+}
+
+static inline
+unsigned long hash_u64(const uint64_t *_key, unsigned long seed)
+{
+	union {
+		uint64_t v64;
+		uint32_t v32[2];
+	} v;
+	union {
+		uint64_t v64;
+		uint32_t v32[2];
+	} key;
+
+	v.v64 = (uint64_t) seed;
+	key.v64 = (uint64_t) _key;
+	hashword2(key.v32, 2, &v.v32[0], &v.v32[1]);
+#if (CAA_BITS_PER_LONG == 32)
+	return (unsigned long) v.v64 | (unsigned long) (v.v64 >> 32);
+#else
+	return (unsigned long) v.v64;
+#endif
+}
 
 static
 struct worker_thread *worker_threads;
@@ -26,14 +117,217 @@ static
 long nr_worker_threads;
 
 static
+__thread unsigned int thread_rand_seed;
+
+static
+int try_mate(struct animal *first, struct animal *second)
+{
+	struct animal *female;
+
+	if (!second)
+		return 0;
+	if (first->kind.animal != second->kind.animal)
+		return 0;
+	if (first->animal_sex == second->animal_sex)
+		return 0;
+	if (first->nr_pregnant || second->nr_pregnant)
+		return 0;
+	if (first->animal_sex == ANIMAL_FEMALE)
+		female = first;
+	else
+		female = second;
+	female->nr_pregnant = rand_r(&thread_rand_seed) % female->kind.max_pregnant;
+	return 1;
+}
+
+static
+int try_kill(struct animal *animal)
+{
+	int ret = 1, delret;
+	struct cds_lfht *ht;
+
+	pthread_mutex_lock(&animal->lock);
+	if (cds_lfht_is_node_deleted(&animal->all_node)) {
+		ret = 0;
+		goto end;
+	}
+	delret = cds_lfht_del(live_animals.all, &animal->all_node);
+	assert(delret == 0);
+	switch (animal->kind.animal) {
+	case GERBIL:
+		ht = live_animals.gerbil;
+		break;
+	case CAT:
+		ht = live_animals.cat;
+		break;
+	case SNAKE:
+		ht = live_animals.snake;
+		break;
+	default:
+		abort();
+	}
+	delret = cds_lfht_del(ht, &animal->kind_node);
+	assert(delret == 0);
+
+end:
+	pthread_mutex_unlock(&animal->lock);
+	return ret;
+}
+
+static
+int try_eat(struct animal *first, struct animal *second)
+{
+	if (!second) {
+		if (first->kind.diet & DIET_FLOWERS) {
+			first->stamina++;
+			/* TODO: decrement flowers */
+			return 1;
+		}
+		if (first->kind.diet & DIET_TREES) {
+			first->stamina++;
+			/* TODO: decrement trees */
+			return 1;
+		}
+	} else {
+		/* First animal has effect of surprise */
+		switch (second->kind.animal) {
+		case GERBIL:
+			if (first->kind.diet & DIET_GERBIL) {
+				if (try_kill(second))
+					first->stamina++;
+				return 1;
+			}
+			break;
+		case CAT:
+			if (first->kind.diet & DIET_CAT) {
+				if (try_kill(second))
+					first->stamina++;
+				return 1;
+			}
+			break;
+		case SNAKE:
+			if (first->kind.diet & DIET_SNAKE) {
+				if (try_kill(second))
+					first->stamina++;
+				return 1;
+			}
+			break;
+		}
+
+		switch (first->kind.animal) {
+		case GERBIL:
+			if (second->kind.diet & DIET_GERBIL) {
+				if (try_kill(first))
+					second->stamina++;
+				return 1;
+			}
+			break;
+		case CAT:
+			if (second->kind.diet & DIET_CAT) {
+				if (try_kill(first))
+					second->stamina++;
+				return 1;
+			}
+			break;
+		case SNAKE:
+			if (second->kind.diet & DIET_SNAKE) {
+				if (try_kill(first))
+					second->stamina++;
+				return 1;
+			}
+			break;
+		}
+	}
+	first->stamina--;
+	if (second)
+		second->stamina--;
+	return 0;
+}
+
+static
+int try_birth(struct animal *first, uint64_t new_key)
+{
+	if (!first->nr_pregnant)
+		return 0;
+	/* TODO: create new animal (add_unique), decrement first nr_pregnant */
+
+
+	return 1;
+}
+
+static
+int animal_match_all(struct cds_lfht_node *node, const void *_key)
+{
+	const uint64_t *key = _key;
+	const struct animal *animal;
+
+	animal = caa_container_of(node, const struct animal, all_node);
+	return *key == animal->key;
+}
+
+static
+int animal_match_kind(struct cds_lfht_node *node, const void *_key)
+{
+	const uint64_t *key = _key;
+	const struct animal *animal;
+
+	animal = caa_container_of(node, const struct animal, kind_node);
+	return *key == animal->key;
+}
+
+static
+unsigned long animal_hash(uint64_t key)
+{
+	return hash_u64(&key, live_animals.ht_seed);
+}
+
+static
 int do_work(struct urcu_game_work *work)
 {
+	struct cds_lfht_node *first_node, *second_node;
+	struct animal *first = NULL, *second = NULL;
+	struct cds_lfht_iter iter;
+
 	if (work->exit_thread)
 		return 1;
 
-	/* TODO */
+	rcu_read_lock();
 
+	cds_lfht_lookup(live_animals.all,
+			animal_hash(work->first_key),
+			animal_match_all,
+			&work->first_key,
+			&iter);
+	first_node = cds_lfht_iter_get_node(&iter);
+	if (first_node)
+		first = caa_container_of(first_node,
+			struct animal, all_node);
 
+	cds_lfht_lookup(live_animals.all,
+			animal_hash(work->second_key),
+			animal_match_all,
+			&work->second_key,
+			&iter);
+	second_node = cds_lfht_iter_get_node(&iter);
+	if (second_node)
+		second = caa_container_of(second_node,
+			struct animal, all_node);
+
+	if (!first) {
+		first = second;
+		if (!first)
+			goto end;
+	}
+
+	if (try_eat(first, second))
+		goto end;
+	if (try_mate(first, second))
+		goto end;
+	if (try_birth(first, work->second_key))
+		goto end;
+
+end:
+	rcu_read_unlock();
 	return 0;
 }
 
@@ -44,6 +338,10 @@ void *worker_thread_fct(void *data)
 	int exit_thread = 0;
 
 	DBG("In worker thread id=%lu.", wt->id);
+
+	rcu_register_thread();
+
+	thread_rand_seed = time(NULL) ^ wt->id;
 
 	while (!exit_thread) {
 		struct cds_wfcq_node *node;
@@ -59,6 +357,8 @@ void *worker_thread_fct(void *data)
 		exit_thread = do_work(work);
 		free(work);
 	}
+
+	rcu_unregister_thread();
 
 	DBG("Worker thread id=%lu exiting.", wt->id);
 	return NULL;
