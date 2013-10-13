@@ -125,8 +125,9 @@ void get_config_entry_uint64(const char *name,
 			name);
 		return;
 	}
+	errno = 0;
 	ret = sscanf(read_buf, "%" SCNu64, &new_size);
-	if (ret != 1) {
+	if (ret != 1 || errno != 0) {
 		perror("fscanf");
 		fprintf(stderr, "Error: expected digital input for %s\n",
 			name);
