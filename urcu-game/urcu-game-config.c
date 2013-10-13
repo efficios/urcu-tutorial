@@ -63,7 +63,10 @@ struct urcu_game_config *urcu_game_config_update_begin(void)
 		return NULL;
 	}
 	pthread_mutex_lock(&config_mutex);
-	memcpy(new_config, current_config, sizeof(*new_config));
+	if (current_config)
+		memcpy(new_config, current_config, sizeof(*new_config));
+	else
+		memset(new_config, 0, sizeof(*new_config));
 	return new_config;
 }
 

@@ -18,6 +18,10 @@
 #include <urcu/system.h>
 #include "urcu-game.h"
 
+int hide_output;
+/* Protect output to screen */
+pthread_mutex_t print_output_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 static
 pthread_t output_thread_id;
 
@@ -28,7 +32,14 @@ void *output_thread_fct(void *data)
 
 	/* Read keys typed by the user */
 	while (!CMM_LOAD_SHARED(exit_program)) {
-		DBG("Refresh screen.");
+		if (!CMM_LOAD_SHARED(hide_output)) {
+			pthread_mutex_lock(&print_output_mutex);
+			DBG("Refresh screen.");
+			/* TODO */
+
+			fflush(stdout);
+			pthread_mutex_unlock(&print_output_mutex);
+		}
 		sleep(URCU_GAME_REFRESH_PERIOD);
 	}
 

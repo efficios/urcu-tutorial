@@ -95,6 +95,8 @@ struct live_animals {
 /* Threads */
 
 extern int exit_program;
+extern int hide_output;
+extern pthread_mutex_t print_output_mutex;
 
 int create_input_thread(void);
 int join_input_thread(void);
