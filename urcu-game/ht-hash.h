@@ -98,7 +98,7 @@ unsigned long hash_u64(const uint64_t *_key, unsigned long seed)
 	} key;
 
 	v.v64 = (uint64_t) seed;
-	key.v64 = (uint64_t) _key;
+	key.v64 = *_key;
 	hashword2(key.v32, 2, &v.v32[0], &v.v32[1]);
 #if (CAA_BITS_PER_LONG == 32)
 	return (unsigned long) v.v64 | (unsigned long) (v.v64 >> 32);

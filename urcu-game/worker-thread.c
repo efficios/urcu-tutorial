@@ -18,6 +18,7 @@
 #include <poll.h>
 #include <time.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <urcu.h>
 #include "worker-thread.h"
@@ -29,10 +30,15 @@ static
 struct worker_thread *worker_threads;
 
 static
-long nr_worker_threads;
+unsigned long nr_worker_threads;
 
 static
 __thread unsigned int thread_rand_seed;
+
+unsigned long get_nr_worker_threads(void)
+{
+	return nr_worker_threads;
+}
 
 /*
  * Lock and test for existence pair of nodes.
@@ -186,19 +192,26 @@ int try_eat(struct animal *first, struct animal *second)
 	if (!second) {
 		if (first->kind.diet & DIET_FLOWERS) {
 			if (lock_test_single(first)) {
-				first->stamina++;
+				pthread_mutex_lock(&vegetation.lock);
+				if (vegetation.flowers) {
+					first->stamina++;
+					vegetation.flowers--;
+					ret = 1;
+				}
+				pthread_mutex_unlock(&vegetation.lock);
 				unlock_single(first);
 			}
-			/* TODO: decrement flowers */
-			ret = 1;
-		}
-		if (first->kind.diet & DIET_TREES) {
+		} else if (first->kind.diet & DIET_TREES) {
 			if (lock_test_single(first)) {
-				first->stamina++;
+				pthread_mutex_lock(&vegetation.lock);
+				if (vegetation.trees) {
+					first->stamina++;
+					vegetation.trees--;
+					ret = 1;
+				}
+				pthread_mutex_unlock(&vegetation.lock);
 				unlock_single(first);
 			}
-			/* TODO: decrement trees */
-			ret = 1;
 		}
 	} else {
 		/* First animal has effect of surprise */
@@ -292,6 +305,8 @@ int animal_match_all(struct cds_lfht_node *node, const void *_key)
 	const struct animal *animal;
 
 	animal = caa_container_of(node, const struct animal, all_node);
+	DBG("match all compare %" PRIu64 " with %" PRIu64,
+		*key, animal->key);
 	return *key == animal->key;
 }
 
@@ -302,13 +317,20 @@ int animal_match_kind(struct cds_lfht_node *node, const void *_key)
 	const struct animal *animal;
 
 	animal = caa_container_of(node, const struct animal, kind_node);
+	DBG("match kind compare %" PRIu64 " with %" PRIu64,
+		*key, animal->key);
 	return *key == animal->key;
 }
 
 static
 unsigned long animal_hash(uint64_t key)
 {
-	return hash_u64(&key, live_animals.ht_seed);
+	unsigned long ret;
+
+	ret = hash_u64(&key, live_animals.ht_seed);
+	DBG("hash: %" PRIu64 " with seed %lu, result: %lu",
+		key, live_animals.ht_seed, ret);
+	return ret;
 }
 
 /*
@@ -367,6 +389,8 @@ int try_birth(struct animal *parent, uint64_t new_key, int god)
 		return 0;
 	}
 
+	assert(child->kind.max_pregnant > 0);
+
 	node = cds_lfht_add_unique(live_animals.all,
 		animal_hash(new_key),
 		animal_match_all,
@@ -404,6 +428,9 @@ int do_work(struct urcu_game_work *work)
 	if (work->exit_thread)
 		return 1;
 
+	DBG("do work: key1 %" PRIu64 ", key2 %" PRIu64,
+		work->first_key, work->second_key);
+
 	rcu_read_lock();
 
 	cds_lfht_lookup(live_animals.all,
@@ -433,14 +460,20 @@ int do_work(struct urcu_game_work *work)
 		first = second;
 		if (!first)
 			goto end;
+		/*
+		 * Cannot have twice the same animal.
+		 */
+		if (first == second) {
+			second = NULL;
+		}
 	}
 
 	if (try_birth(first, work->second_key, 0))
-		goto end;
+		DBG("birth success");
 	if (try_eat(first, second))
-		goto end;
+		DBG("eat success");
 	if (try_mate(first, second))
-		goto end;
+		DBG("mate success");
 
 end:
 	rcu_read_unlock();
@@ -480,13 +513,10 @@ void *worker_thread_fct(void *data)
 	return NULL;
 }
 
-int create_worker_threads(long nr_threads)
+int create_worker_threads(unsigned long nr_threads)
 {
-	long i;
+	unsigned long i;
 	int err;
-
-	if (nr_threads < 0)
-		return -1;
 
 	worker_threads = calloc(nr_threads, sizeof(*worker_threads));
 	if (!worker_threads)
@@ -524,7 +554,7 @@ void stop_thread(struct worker_thread *thread)
 
 void stop_worker_threads(void)
 {
-	long i;
+	unsigned long i;
 
 	for (i = 0; i < nr_worker_threads; i++) {
 		struct worker_thread *worker;
@@ -536,7 +566,7 @@ void stop_worker_threads(void)
 
 int join_worker_threads(void)
 {
-	long i;
+	unsigned long i;
 
 	for (i = 0; i < nr_worker_threads; i++) {
 		struct worker_thread *worker;
@@ -561,6 +591,7 @@ int enqueue_work(unsigned long thread_nr, struct urcu_game_work *work)
 		return -1;
 
 	worker = &worker_threads[thread_nr];
+	cds_wfcq_node_init(&work->q_node);
 	was_non_empty = cds_wfcq_enqueue(&worker->q_head,
 			&worker->q_tail, &work->q_node);
 	if (!was_non_empty) {

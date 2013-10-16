@@ -47,12 +47,14 @@ struct urcu_game_work {
 	 */
 } __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
 
-int create_worker_threads(long nr_threads);
+int create_worker_threads(unsigned long nr_threads);
 
 void stop_worker_threads(void);
 
 int join_worker_threads(void);
 
 int enqueue_work(unsigned long thread_nr, struct urcu_game_work *work);
+
+unsigned long get_nr_worker_threads(void);
 
 #endif /* WORKER_THREAD_H */

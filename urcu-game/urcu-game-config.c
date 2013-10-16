@@ -102,14 +102,14 @@ void init_game_config(void)
 	new_config->cat.max_birth_stamina =
 			DEFAULT_CAT_MAX_BIRTH_STAMINA;
 	new_config->cat.animal = CAT;
-	new_config->cat.diet = GERBIL | DIET_FLOWERS;
-	new_config->gerbil.max_pregnant = 4;
+	new_config->cat.diet = DIET_GERBIL | DIET_FLOWERS;
+	new_config->cat.max_pregnant = 4;
 
 	new_config->snake.max_birth_stamina =
 			DEFAULT_SNAKE_MAX_BIRTH_STAMINA;
 	new_config->snake.animal = SNAKE;
-	new_config->snake.diet = GERBIL | CAT;
-	new_config->gerbil.max_pregnant = 1;
+	new_config->snake.diet = DIET_GERBIL | DIET_CAT;
+	new_config->snake.max_pregnant = 1;
 
 	urcu_game_config_update_end(new_config);
 }

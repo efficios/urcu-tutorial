@@ -242,8 +242,11 @@ void create_animals(enum animal_types type, uint64_t nr)
 	for (i = 0; i < nr; i++) {
 		uint64_t child_key =
 			rand_r(&thread_rand_seed) % config->island_size;
+		int ret;
 
-		try_birth(&parent, child_key, 1);
+		ret = try_birth(&parent, child_key, 1);
+		DBG("God create animal %d, return: %d",
+			type, ret);
 	}
 	rcu_read_unlock();
 }

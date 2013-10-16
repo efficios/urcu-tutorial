@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <urcu.h>
 #include <time.h>
+#include <inttypes.h>
 #include "urcu-game.h"
 #include "urcu-game-config.h"
 #include "worker-thread.h"
@@ -83,8 +84,11 @@ void apocalypse(struct cds_lfht *ht)
 	struct cds_lfht_iter iter;
 	struct animal *animal;
 
-	cds_lfht_for_each_entry(ht, &iter, animal, all_node)
+	DBG("Apocalypse");
+	cds_lfht_for_each_entry(ht, &iter, animal, all_node) {
+		DBG("Kill animal %" PRIu64, animal->key);
 		kill_animal(animal);
+	}
 }
 
 int main(int argc, char **argv)
