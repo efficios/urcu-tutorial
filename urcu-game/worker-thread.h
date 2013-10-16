@@ -20,9 +20,12 @@
 #include <urcu/compiler.h>
 #include <pthread.h>
 
+#define MAX_WQ_LEN	1000
+
 struct worker_thread {
 	struct cds_wfcq_tail q_tail;	/* new work enqueued at tail */
 	struct cds_wfcq_head q_head;	/* extracted from head */
+	unsigned long q_len;
 	unsigned long id;
 	pthread_t thread_id;
 

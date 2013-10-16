@@ -21,6 +21,7 @@
 #include <inttypes.h>
 #include <string.h>
 #include <urcu.h>
+#include <urcu/uatomic.h>
 #include "worker-thread.h"
 #include "urcu-game.h"
 #include "urcu-game-config.h"
@@ -102,6 +103,7 @@ void *worker_thread_fct(void *data)
 			poll(NULL, 0, 100);	/* 100ms delay */
 			continue;
 		}
+		uatomic_dec(&wt->q_len);
 		work = caa_container_of(node, struct urcu_game_work, q_node);
 		exit_thread = do_work(work);
 		free(work);
@@ -191,6 +193,15 @@ int enqueue_work(unsigned long thread_nr, struct urcu_game_work *work)
 		return -1;
 
 	worker = &worker_threads[thread_nr];
+	/*
+	 * A single thread is pushing into the queue, this backoff
+	 * mechanism is sufficient.
+	 */
+	while (uatomic_read(&worker->q_len) >= MAX_WQ_LEN) {
+		poll(NULL, 0, 10);	/* sleep 10ms */
+	}
+
+	uatomic_inc(&worker->q_len);
 	cds_wfcq_node_init(&work->q_node);
 	was_non_empty = cds_wfcq_enqueue(&worker->q_head,
 			&worker->q_tail, &work->q_node);

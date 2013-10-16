@@ -18,6 +18,7 @@
 #include <errno.h>
 #include <termios.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <urcu.h>
 #include <urcu/system.h>
 #include "urcu-game.h"
@@ -157,6 +158,7 @@ void do_config(void)
 		printf("  q	Cancel update\n");
 		printf("  x	Save update and exit configuration menu\n");
 		printf("  i	Island size (%" PRIu64 ")\n", new_config->island_size);
+		printf("  d	Step delay (%d ms)\n", new_config->step_delay);
 		printf("  g	Gerbil max birth stamina (%" PRIu64 ")\n",
 				new_config->gerbil.max_birth_stamina);
 		printf("  c	Cat max birth stamina (%" PRIu64 ")\n",
@@ -190,6 +192,19 @@ void do_config(void)
 				break;
 			}
 			new_config->island_size = new_size;
+			break;
+		}
+		case 'd':	/* step delay */
+		{
+			uint64_t new_delay;
+
+			get_config_entry_uint64("step delay (ms)",
+				&new_delay);
+			if (new_delay > INT_MAX) {
+				printf("Error: delay specified is too large.\n");
+				break;
+			}
+			new_config->step_delay = (int) new_delay;
 			break;
 		}
 		case 'g':	/* gerbil stamina */

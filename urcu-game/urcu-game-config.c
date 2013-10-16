@@ -93,6 +93,7 @@ void init_game_config(void)
 
 	new_config = urcu_game_config_update_begin();
 	new_config->island_size = DEFAULT_ISLAND_SIZE;
+	new_config->step_delay = DEFAULT_STEP_DELAY;
 	new_config->gerbil.max_birth_stamina =
 			DEFAULT_GERBIL_MAX_BIRTH_STAMINA;
 	new_config->gerbil.animal = GERBIL;

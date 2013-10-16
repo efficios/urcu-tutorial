@@ -16,6 +16,7 @@
 #include <unistd.h>
 #include <urcu/system.h>
 #include <urcu.h>
+#include <poll.h>
 #include "urcu-game.h"
 #include "urcu-game-config.h"
 #include "worker-thread.h"
@@ -55,19 +56,31 @@ static
 void *dispatch_thread_fct(void *data)
 {
 	DBG("In user dispatch thread.");
+	rcu_register_thread();
 
 	thread_rand_seed = time(NULL);
 
 	/* Read keys typed by the user */
 	while (!CMM_LOAD_SHARED(exit_program)) {
+		struct urcu_game_config *config;
+		int step_delay;
+
 		DBG("Dispatch.");
 		do_dispatch();
-		sleep(1);	/* TODO */
+
+		rcu_read_lock();
+		config = urcu_game_config_get();
+		step_delay = config->step_delay;
+		rcu_read_unlock();
+
+		/* sleep number of ms */
+		poll(NULL, 0, step_delay);
 	}
 
 	/* Send worker thread stop message */
 	stop_worker_threads();
 
+	rcu_unregister_thread();
 	DBG("User dispatch thread exiting.");
 	return NULL;
 }

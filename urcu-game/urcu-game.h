@@ -46,6 +46,7 @@ struct animal_kind {
 
 #define DEFAULT_ISLAND_SIZE			\
 	2 * (DEFAULT_VEGETATION_FLOWERS + DEFAULT_VEGETATION_TREES)
+#define DEFAULT_STEP_DELAY			1000
 #define DEFAULT_GERBIL_MAX_BIRTH_STAMINA	70
 #define DEFAULT_CAT_MAX_BIRTH_STAMINA		80
 #define DEFAULT_SNAKE_MAX_BIRTH_STAMINA		30
@@ -53,7 +54,8 @@ struct animal_kind {
 #define DEFAULT_VEGETATION_TREES		200
 
 struct urcu_game_config {
-	uint64_t island_size;	/* max number of animals on the island */
+	uint64_t island_size;		/* max number of animals on the island */
+	unsigned int step_delay;	/* game step delay, in ms */
 
 	/* configuration for each animal type newborn */
 	struct animal_kind gerbil;
