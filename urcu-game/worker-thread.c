@@ -22,6 +22,7 @@
 #include <urcu.h>
 #include "worker-thread.h"
 #include "urcu-game.h"
+#include "urcu-game-config.h"
 #include "ht-hash.h"
 
 static
@@ -95,6 +96,9 @@ void unlock_single(struct animal *first)
 	pthread_mutex_unlock(&first->lock);
 }
 
+/*
+ * Called with RCU read-side lock held.
+ */
 static
 int try_mate(struct animal *first, struct animal *second)
 {
@@ -132,7 +136,9 @@ int try_mate(struct animal *first, struct animal *second)
 	return ret;
 }
 
+
 /*
+ * Called with RCU read-side lock held.
  * Needs to be called with animal lock held.
  */
 static
@@ -160,6 +166,9 @@ void kill_animal(struct animal *animal)
 	assert(delret == 0);
 }
 
+/*
+ * Called with RCU read-side lock held.
+ */
 static
 int try_eat(struct animal *first, struct animal *second)
 {
@@ -294,36 +303,53 @@ unsigned long animal_hash(uint64_t key)
 }
 
 /*
- * If parent is NULL, the animal is spontaneously created.
+ * If "god" is non-zero, the animal is spontaneously created.
+ * Called with RCU read-side lock held.
  */
-static
-int try_birth(struct animal *parent, uint64_t new_key)
+int try_birth(struct animal *parent, uint64_t new_key, int god)
 {
 	struct cds_lfht_node *node;
 	struct animal *child;
+	struct urcu_game_config *config;
 
-	if (parent && !parent->nr_pregnant)
+	if (!god && !parent->nr_pregnant)
 		return 0;
 
 	child = calloc(1, sizeof(*child));
 	if (!child)
 		abort();
-	if (parent) {
-		memcpy(&child->kind, &parent->kind, sizeof(child->kind));
-	} else {
-		/* TODO */
+
+	config = urcu_game_config_get();
+
+	/*
+	 * Update child kind with current configuration.
+	 */
+	switch (parent->kind.animal) {
+	case GERBIL:
+		memcpy(&child->kind, &config->gerbil, sizeof(child->kind));
+		break;
+	case CAT:
+		memcpy(&child->kind, &config->cat, sizeof(child->kind));
+		break;
+	case SNAKE:
+		memcpy(&child->kind, &config->snake, sizeof(child->kind));
+		break;
+	default:
+		abort();
 	}
+
 	child->animal_sex = (rand_r(&thread_rand_seed) & 1) ?
 		ANIMAL_FEMALE : ANIMAL_MALE;
 	child->key = new_key;
-	child->stamina = rand_r(&thread_rand_seed) % child->kind.max_birth_stamina;
+	child->stamina = rand_r(&thread_rand_seed)
+		% child->kind.max_birth_stamina;
 	child->nr_pregnant = 0;
 
 	/*
 	 * We need to lock the parent to ensure it is not killed
 	 * concurrently before giving birth.
 	 */
-	if (parent && !lock_test_single(parent)) {
+	if (!god && !lock_test_single(parent)) {
 		free(child);
 		return 0;
 	}
@@ -336,13 +362,13 @@ int try_birth(struct animal *parent, uint64_t new_key)
 	if (node == &child->all_node) {
 		/* Successfully added */
 		parent->nr_pregnant--;
-		if (parent)
+		if (!god)
 			unlock_single(parent);
 		return 1;
 	} else {
 		/* Another node already present */
 		free(child);
-		if (parent)
+		if (!god)
 			unlock_single(parent);
 		return 0;
 	}
@@ -389,7 +415,7 @@ int do_work(struct urcu_game_work *work)
 			goto end;
 	}
 
-	if (try_birth(first, work->second_key))
+	if (try_birth(first, work->second_key, 0))
 		goto end;
 	if (try_eat(first, second))
 		goto end;

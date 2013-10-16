@@ -111,8 +111,5 @@ void init_game_config(void)
 	new_config->snake.diet = GERBIL | CAT;
 	new_config->gerbil.max_pregnant = 1;
 
-	new_config->vegetation.flowers = DEFAULT_VEGETATION_FLOWERS;
-	new_config->vegetation.trees = DEFAULT_VEGETATION_TREES;
-
 	urcu_game_config_update_end(new_config);
 }

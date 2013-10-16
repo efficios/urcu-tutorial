@@ -26,6 +26,11 @@ long nr_worker_threads = 8;
 int verbose, exit_program;
 
 struct live_animals live_animals;
+struct vegetation vegetation = {
+	.flowers = DEFAULT_VEGETATION_FLOWERS,
+	.trees = DEFAULT_VEGETATION_TREES,
+	.lock = PTHREAD_MUTEX_INITIALIZER,
+};
 
 void show_usage(int argc, char **argv)
 {

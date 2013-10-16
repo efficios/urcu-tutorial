@@ -18,12 +18,16 @@
 #include <errno.h>
 #include <termios.h>
 #include <inttypes.h>
+#include <urcu.h>
 #include <urcu/system.h>
 #include "urcu-game.h"
 #include "urcu-game-config.h"
 
 static
 pthread_t input_thread_id;
+
+static
+__thread unsigned int thread_rand_seed;
 
 /*
  * Read characters from terminal, without awaiting for newline and
@@ -159,8 +163,6 @@ void do_config(void)
 		printf("  q	Cancel update\n");
 		printf("  x	Save update and exit configuration menu\n");
 		printf("  i	Island size (%" PRIu64 ")\n", new_config->island_size);
-		printf("  f	Flowers (%" PRIu64 ")\n", new_config->vegetation.flowers);
-		printf("  t	Trees (%" PRIu64 ")\n", new_config->vegetation.trees);
 		printf("  g	Gerbil max birth stamina (%" PRIu64 ")\n",
 				new_config->gerbil.max_birth_stamina);
 		printf("  c	Cat max birth stamina (%" PRIu64 ")\n",
@@ -196,14 +198,6 @@ void do_config(void)
 			new_config->island_size = new_size;
 			break;
 		}
-		case 'f':	/* flowers */
-			get_config_entry_uint64("flower vegetation",
-				&new_config->vegetation.flowers);
-			break;
-		case 't':	/* trees */
-			get_config_entry_uint64("tree vegetation",
-				&new_config->vegetation.trees);
-			break;
 		case 'g':	/* gerbil stamina */
 			get_config_entry_uint64("gerbil stamina",
 				&new_config->gerbil.max_birth_stamina);
@@ -227,6 +221,125 @@ end:
 	CMM_STORE_SHARED(hide_output, 0);	/* show normal output */
 }
 
+/*
+ * Try to create at most "nr" animals. No guarantee of success.
+ */
+static
+void create_animals(enum animal_types type, uint64_t nr)
+{
+	uint64_t i;
+	struct animal parent;
+	struct urcu_game_config *config;
+
+	rcu_read_lock();
+	config = urcu_game_config_get();
+	/*
+	 * When we create animal as god, we only care about animal type.
+	 * The rest is derived from the current configuration.
+	 */
+	parent.kind.animal = type;
+
+	for (i = 0; i < nr; i++) {
+		uint64_t child_key =
+			rand_r(&thread_rand_seed) % config->island_size;
+
+		try_birth(&parent, child_key, 1);
+	}
+	rcu_read_unlock();
+}
+
+static
+void do_god(void)
+{
+	char key;
+	int ret;
+
+	CMM_STORE_SHARED(hide_output, 1);	/* hide normal output */
+	pthread_mutex_lock(&print_output_mutex);
+
+	for (;;) {
+		printf("\n");
+		printf("[ root > god ]\n");
+		printf("Enter the animal or vegetation you wish to modify:\n");
+		printf("Modifications take effect immediately.\n");
+		printf(" key	Description\n");
+		printf("---------------------------------\n");
+		printf("  x	Exit menu\n");
+		printf("  f	Number of flowers\n");
+		printf("  t	Number of trees\n");
+		printf("  g	Create gerbils\n");
+		printf("  c	Create cats\n");
+		printf("  s	Create snakes\n");
+
+		ret = getch(&key);
+		if (ret < 0)
+			goto end;
+
+		DBG("User input: \'%c\'", key);
+
+		switch(key) {
+		case 'x':	/* exit menu */
+			goto end;
+		case 'f':	/* flowers */
+		{
+			uint64_t value;
+
+			get_config_entry_uint64("number of flowers",
+				&value);
+			pthread_mutex_lock(&vegetation.lock);
+			vegetation.flowers = value;
+			pthread_mutex_unlock(&vegetation.lock);
+			break;
+		}
+		case 't':	/* trees */
+		{
+			uint64_t value;
+
+			get_config_entry_uint64("number of trees",
+				&value);
+			pthread_mutex_lock(&vegetation.lock);
+			vegetation.trees = value;
+			pthread_mutex_unlock(&vegetation.lock);
+			break;
+		}
+		case 'g':	/* create gerbils */
+		{
+			uint64_t value;
+
+			get_config_entry_uint64("amount of gerbils to create",
+				&value);
+			create_animals(GERBIL, value);
+			break;
+		}
+		case 'c':	/* create cats */
+		{
+			uint64_t value;
+
+			get_config_entry_uint64("amount of cats to create",
+				&value);
+			create_animals(CAT, value);
+			break;
+		}
+		case 's':	/* create snakes */
+		{
+			uint64_t value;
+
+			get_config_entry_uint64("amount of snakes to create",
+				&value);
+			create_animals(SNAKE, value);
+			break;
+		}
+		default:
+			printf("Unknown key: \'%c\'\n", key);
+			break;
+		}
+	}
+end:
+	fflush(stdout);
+	pthread_mutex_unlock(&print_output_mutex);
+	CMM_STORE_SHARED(hide_output, 0);	/* show normal output */
+}
+
 static
 void show_menu(void)
 {
@@ -237,15 +350,18 @@ void show_menu(void)
 	printf("---------------------------------\n");
 	printf("  m	Show menu\n");
 	printf("  c	Configuration menu\n");
+	printf("  g	Play god\n");
 	printf("  q	Quit game\n");
 	pthread_mutex_unlock(&print_output_mutex);
 }
-
 
 static
 void *input_thread_fct(void *data)
 {
 	DBG("In user input thread.");
+	rcu_register_thread();
+
+	thread_rand_seed = time(NULL);
 
 	/* Read keys typed by the user */
 	for (;;) {
@@ -269,6 +385,9 @@ void *input_thread_fct(void *data)
 			break;
 		case 'm':
 			break;	/* show menu */
+		case 'g':
+			do_god();
+			break;
 			/* TODO other keys */
 		default:
 			printf("Unknown key: \'%c\'\n", key);
@@ -277,6 +396,7 @@ void *input_thread_fct(void *data)
 	}
 
 end:
+	rcu_unregister_thread();
 	DBG("User input thread exiting.");
 	return NULL;
 }

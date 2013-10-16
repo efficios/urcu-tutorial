@@ -44,11 +44,6 @@ struct animal_kind {
 	unsigned int diet;
 };
 
-struct vegetation {
-	uint64_t flowers;
-	uint64_t trees;
-};
-
 #define DEFAULT_ISLAND_SIZE			\
 	2 * (DEFAULT_VEGETATION_FLOWERS + DEFAULT_VEGETATION_TREES)
 #define DEFAULT_GERBIL_MAX_BIRTH_STAMINA	70
@@ -64,9 +59,6 @@ struct urcu_game_config {
 	struct animal_kind gerbil;
 	struct animal_kind cat;
 	struct animal_kind snake;
-
-	/* food available on the island */
-	struct vegetation vegetation;
 
 	struct rcu_head rcu_head;	/* Delayed reclaim */
 };
@@ -111,13 +103,22 @@ struct live_animals {
 	unsigned long ht_seed;
 };
 
+struct vegetation {
+	uint64_t flowers;
+	uint64_t trees;
+	pthread_mutex_t lock;
+};
+
 /* Threads */
 
 extern struct live_animals live_animals;
+extern struct vegetation vegetation;
 
 extern int exit_program;
 extern int hide_output;
 extern pthread_mutex_t print_output_mutex;
+
+int try_birth(struct animal *parent, uint64_t new_key, int god);
 
 int create_input_thread(void);
 int join_input_thread(void);
