@@ -77,6 +77,16 @@ end:
 	return err;
 }
 
+static
+void apocalypse(struct cds_lfht *ht)
+{
+	struct cds_lfht_iter iter;
+	struct animal *animal;
+
+	cds_lfht_for_each_entry(ht, &iter, animal, all_node)
+		kill_animal(animal);
+}
+
 int main(int argc, char **argv)
 {
 	int err;
@@ -145,6 +155,11 @@ int main(int argc, char **argv)
 	if (err)
 		goto end;
 
+	/*
+	 * Kill all animals. After all threads have been joined.
+	 */
+	apocalypse(live_animals.all);
+
 	err = cds_lfht_destroy(live_animals.snake, NULL);
 	if (err)
 		goto end;
@@ -157,6 +172,11 @@ int main(int argc, char **argv)
 	err = cds_lfht_destroy(live_animals.all, NULL);
 	if (err)
 		goto end;
+
+	/*
+	 * Clean exit: ensure in-flight call_rcu() work is completed.
+	 */
+	rcu_barrier();
 
 	printf("Goodbye!\n");
 

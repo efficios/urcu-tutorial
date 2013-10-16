@@ -306,7 +306,7 @@ void do_god(void)
 		{
 			uint64_t value;
 
-			get_config_entry_uint64("amount of gerbils to create",
+			get_config_entry_uint64("amount of gerbils to try creating",
 				&value);
 			create_animals(GERBIL, value);
 			break;
@@ -315,7 +315,7 @@ void do_god(void)
 		{
 			uint64_t value;
 
-			get_config_entry_uint64("amount of cats to create",
+			get_config_entry_uint64("amount of cats to try creating",
 				&value);
 			create_animals(CAT, value);
 			break;
@@ -324,7 +324,7 @@ void do_god(void)
 		{
 			uint64_t value;
 
-			get_config_entry_uint64("amount of snakes to create",
+			get_config_entry_uint64("amount of snakes to try creating",
 				&value);
 			create_animals(SNAKE, value);
 			break;

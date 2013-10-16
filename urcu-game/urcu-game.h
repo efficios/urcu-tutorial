@@ -86,6 +86,7 @@ struct animal {
 	pthread_mutex_t lock;		/* mutual exclusion on animal */
 	struct cds_lfht_node kind_node;	/* node in kind hash table */
 	struct cds_lfht_node all_node;	/* node in all animals hash table */
+	struct rcu_head rcu_head;	/* Delayed reclaim */
 };
 
 /*
@@ -119,6 +120,7 @@ extern int hide_output;
 extern pthread_mutex_t print_output_mutex;
 
 int try_birth(struct animal *parent, uint64_t new_key, int god);
+void kill_animal(struct animal *animal);
 
 int create_input_thread(void);
 int join_input_thread(void);

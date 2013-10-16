@@ -15,7 +15,10 @@
 
 #include <unistd.h>
 #include <stdio.h>
+#include <inttypes.h>
 #include <urcu/system.h>
+#include <urcu.h>
+#include <urcu/rculfhash.h>
 #include "urcu-game.h"
 
 int hide_output;
@@ -26,16 +29,55 @@ static
 pthread_t output_thread_id;
 
 static
+void do_print_output(void)
+{
+	struct animal *animal;
+	struct cds_lfht_iter iter;
+	uint64_t count;
+
+	rcu_read_lock();
+
+	printf("--------- RCU Island Summary -------\n");
+	count = 0;
+	cds_lfht_for_each_entry(live_animals.gerbil, &iter,
+			animal, kind_node)
+		count++;
+	printf("Number of gerbils: %" PRIu64 "\n", count);
+
+	count = 0;
+	cds_lfht_for_each_entry(live_animals.cat, &iter,
+			animal, kind_node)
+		count++;
+	printf("Number of cats: %" PRIu64 "\n", count);
+
+	count = 0;
+	cds_lfht_for_each_entry(live_animals.snake, &iter,
+			animal, kind_node)
+		count++;
+	printf("Number of snakes: %" PRIu64 "\n", count);
+
+	pthread_mutex_lock(&vegetation.lock);
+	printf("Flowers: %" PRIu64 "\n", vegetation.flowers);
+	printf("Trees: %" PRIu64 "\n", vegetation.trees);
+	pthread_mutex_unlock(&vegetation.lock);
+	printf("------------------------------------\n");
+
+	rcu_read_unlock();
+}
+
+static
 void *output_thread_fct(void *data)
 {
 	DBG("In user output thread.");
+	rcu_register_thread();
 
 	/* Read keys typed by the user */
 	while (!CMM_LOAD_SHARED(exit_program)) {
 		if (!CMM_LOAD_SHARED(hide_output)) {
 			pthread_mutex_lock(&print_output_mutex);
 			DBG("Refresh screen.");
-			/* TODO */
+
+			do_print_output();
 
 			fflush(stdout);
 			pthread_mutex_unlock(&print_output_mutex);
@@ -43,6 +85,7 @@ void *output_thread_fct(void *data)
 		sleep(URCU_GAME_REFRESH_PERIOD);
 	}
 
+	rcu_unregister_thread();
 	DBG("User output thread exiting.");
 	return NULL;
 }

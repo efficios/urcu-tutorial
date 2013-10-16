@@ -136,12 +136,20 @@ int try_mate(struct animal *first, struct animal *second)
 	return ret;
 }
 
+static
+void free_animal(struct rcu_head *head)
+{
+	struct animal *animal;
+
+	animal = caa_container_of(head, struct animal, rcu_head);
+	free(animal);
+}
 
 /*
  * Called with RCU read-side lock held.
- * Needs to be called with animal lock held.
+ * Needs to be called with animal lock held, or as single thread during
+ * apocalypse.
  */
-static
 void kill_animal(struct animal *animal)
 {
 	int delret;
@@ -164,6 +172,7 @@ void kill_animal(struct animal *animal)
 	}
 	delret = cds_lfht_del(ht, &animal->kind_node);
 	assert(delret == 0);
+	call_rcu(&animal->rcu_head, free_animal);
 }
 
 /*
@@ -311,6 +320,7 @@ int try_birth(struct animal *parent, uint64_t new_key, int god)
 	struct cds_lfht_node *node;
 	struct animal *child;
 	struct urcu_game_config *config;
+	struct cds_lfht *kind_ht;
 
 	if (!god && !parent->nr_pregnant)
 		return 0;
@@ -327,12 +337,15 @@ int try_birth(struct animal *parent, uint64_t new_key, int god)
 	switch (parent->kind.animal) {
 	case GERBIL:
 		memcpy(&child->kind, &config->gerbil, sizeof(child->kind));
+		kind_ht = live_animals.gerbil;
 		break;
 	case CAT:
 		memcpy(&child->kind, &config->cat, sizeof(child->kind));
+		kind_ht = live_animals.cat;
 		break;
 	case SNAKE:
 		memcpy(&child->kind, &config->snake, sizeof(child->kind));
+		kind_ht = live_animals.snake;
 		break;
 	default:
 		abort();
@@ -360,6 +373,13 @@ int try_birth(struct animal *parent, uint64_t new_key, int god)
 		&new_key,
 		&child->all_node);
 	if (node == &child->all_node) {
+		node = cds_lfht_add_unique(kind_ht,
+			animal_hash(new_key),
+			animal_match_kind,
+			&new_key,
+			&child->kind_node);
+		if (node != &child->kind_node)
+			abort();
 		/* Successfully added */
 		parent->nr_pregnant--;
 		if (!god)
