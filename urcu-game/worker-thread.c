@@ -18,6 +18,7 @@
 #include <poll.h>
 #include <time.h>
 #include <stdint.h>
+#include <string.h>
 #include <urcu.h>
 #include "worker-thread.h"
 #include "urcu-game.h"
@@ -119,38 +120,114 @@ long nr_worker_threads;
 static
 __thread unsigned int thread_rand_seed;
 
+/*
+ * Lock and test for existence pair of nodes.
+ *
+ * Returns 1 on success, or 0 (error) if either of the nodes don't
+ * exist. Returns with both locks held on success, or no lock held on
+ * error.
+ * Always grab the locks in increasing order of key to ensure there are
+ * no deadlocks.
+ */
+static
+int lock_test_pair(struct animal *first, struct animal *second)
+{
+	struct animal *tmp;
+
+	if (first->key > second->key) {
+		tmp = first;
+		first = second;
+		second = tmp;
+	}
+	pthread_mutex_lock(&first->lock);
+	if (cds_lfht_is_node_deleted(&first->all_node))
+		goto error_first;
+	pthread_mutex_lock(&second->lock);
+	if (cds_lfht_is_node_deleted(&second->all_node))
+		goto error_second;
+	/* ok */
+	return 1;
+
+error_second:
+	pthread_mutex_unlock(&second->lock);
+error_first:
+	pthread_mutex_unlock(&first->lock);
+	return 0;	/* error */
+}
+
+static
+void unlock_pair(struct animal *first, struct animal *second)
+{
+	pthread_mutex_unlock(&second->lock);
+	pthread_mutex_unlock(&first->lock);
+}
+
+static
+int lock_test_single(struct animal *first)
+{
+	pthread_mutex_lock(&first->lock);
+	if (cds_lfht_is_node_deleted(&first->all_node))
+		goto error_first;
+	/* ok */
+	return 1;
+
+error_first:
+	pthread_mutex_unlock(&first->lock);
+	return 0;	/* error */
+}
+
+static
+void unlock_single(struct animal *first)
+{
+	pthread_mutex_unlock(&first->lock);
+}
+
 static
 int try_mate(struct animal *first, struct animal *second)
 {
 	struct animal *female;
+	int ret = 0;
 
+	/*
+	 * We can test a variety of conditions without holding the lock.
+	 */
 	if (!second)
 		return 0;
 	if (first->kind.animal != second->kind.animal)
 		return 0;
 	if (first->animal_sex == second->animal_sex)
 		return 0;
-	if (first->nr_pregnant || second->nr_pregnant)
-		return 0;
 	if (first->animal_sex == ANIMAL_FEMALE)
 		female = first;
 	else
 		female = second;
-	female->nr_pregnant = rand_r(&thread_rand_seed) % female->kind.max_pregnant;
-	return 1;
+
+	if (lock_test_pair(first, second)) {
+		if (!first->nr_pregnant && !second->nr_pregnant) {
+			/*
+			 * We check if already pregnant with locks held,
+			 * since pregnancy state could otherwise change
+			 * concurrently.
+			 */
+			female->nr_pregnant =
+				rand_r(&thread_rand_seed)
+					% female->kind.max_pregnant;
+			ret = 1;
+		}
+		unlock_pair(first, second);
+	}
+	return ret;
 }
 
+/*
+ * Needs to be called with animal lock held.
+ */
 static
-int try_kill(struct animal *animal)
+void kill_animal(struct animal *animal)
 {
-	int ret = 1, delret;
+	int delret;
 	struct cds_lfht *ht;
 
-	pthread_mutex_lock(&animal->lock);
-	if (cds_lfht_is_node_deleted(&animal->all_node)) {
-		ret = 0;
-		goto end;
-	}
 	delret = cds_lfht_del(live_animals.all, &animal->all_node);
 	assert(delret == 0);
 	switch (animal->kind.animal) {
@@ -168,48 +245,61 @@ int try_kill(struct animal *animal)
 	}
 	delret = cds_lfht_del(ht, &animal->kind_node);
 	assert(delret == 0);
-
-end:
-	pthread_mutex_unlock(&animal->lock);
-	return ret;
 }
 
 static
 int try_eat(struct animal *first, struct animal *second)
 {
+	int ret = 0;
+
 	if (!second) {
 		if (first->kind.diet & DIET_FLOWERS) {
-			first->stamina++;
+			if (lock_test_single(first)) {
+				first->stamina++;
+				unlock_single(first);
+			}
 			/* TODO: decrement flowers */
-			return 1;
+			ret = 1;
 		}
 		if (first->kind.diet & DIET_TREES) {
-			first->stamina++;
+			if (lock_test_single(first)) {
+				first->stamina++;
+				unlock_single(first);
+			}
 			/* TODO: decrement trees */
-			return 1;
+			ret = 1;
 		}
 	} else {
 		/* First animal has effect of surprise */
 		switch (second->kind.animal) {
 		case GERBIL:
 			if (first->kind.diet & DIET_GERBIL) {
-				if (try_kill(second))
+				if (lock_test_pair(first, second)) {
+					kill_animal(second);
 					first->stamina++;
-				return 1;
+					ret = 1;
+					unlock_pair(first, second);
+				}
 			}
 			break;
 		case CAT:
 			if (first->kind.diet & DIET_CAT) {
-				if (try_kill(second))
+				if (lock_test_pair(first, second)) {
+					kill_animal(second);
 					first->stamina++;
-				return 1;
+					ret = 1;
+					unlock_pair(first, second);
+				}
 			}
 			break;
 		case SNAKE:
 			if (first->kind.diet & DIET_SNAKE) {
-				if (try_kill(second))
+				if (lock_test_pair(first, second)) {
+					kill_animal(second);
 					first->stamina++;
-				return 1;
+					ret = 1;
+					unlock_pair(first, second);
+				}
 			}
 			break;
 		}
@@ -217,42 +307,51 @@ int try_eat(struct animal *first, struct animal *second)
 		switch (first->kind.animal) {
 		case GERBIL:
 			if (second->kind.diet & DIET_GERBIL) {
-				if (try_kill(first))
+				if (lock_test_pair(first, second)) {
+					kill_animal(first);
 					second->stamina++;
-				return 1;
+					ret = 1;
+					unlock_pair(first, second);
+				}
 			}
 			break;
 		case CAT:
 			if (second->kind.diet & DIET_CAT) {
-				if (try_kill(first))
+				if (lock_test_pair(first, second)) {
+					kill_animal(first);
 					second->stamina++;
-				return 1;
+					ret = 1;
+					unlock_pair(first, second);
+				}
 			}
 			break;
 		case SNAKE:
 			if (second->kind.diet & DIET_SNAKE) {
-				if (try_kill(first))
+				if (lock_test_pair(first, second)) {
+					kill_animal(first);
 					second->stamina++;
-				return 1;
+					ret = 1;
+					unlock_pair(first, second);
+				}
 			}
 			break;
 		}
 	}
-	first->stamina--;
-	if (second)
-		second->stamina--;
-	return 0;
-}
-
-static
-int try_birth(struct animal *first, uint64_t new_key)
-{
-	if (!first->nr_pregnant)
-		return 0;
-	/* TODO: create new animal (add_unique), decrement first nr_pregnant */
-
-
-	return 1;
+	/*
+	 * If none of the animals involved in the encounter can eat,
+	 * decrement their stamina.
+	 */
+	if (!ret) {
+		if (lock_test_single(first)) {
+			first->stamina--;
+			unlock_single(first);
+		}
+		if (second && lock_test_single(second)) {
+			second->stamina--;
+			unlock_single(second);
+		}
+	}
+	return ret;
 }
 
 static
@@ -279,6 +378,61 @@ static
 unsigned long animal_hash(uint64_t key)
 {
 	return hash_u64(&key, live_animals.ht_seed);
+}
+
+/*
+ * If parent is NULL, the animal is spontaneously created.
+ */
+static
+int try_birth(struct animal *parent, uint64_t new_key)
+{
+	struct cds_lfht_node *node;
+	struct animal *child;
+
+	if (parent && !parent->nr_pregnant)
+		return 0;
+
+	child = calloc(1, sizeof(*child));
+	if (!child)
+		abort();
+	if (parent) {
+		memcpy(&child->kind, &parent->kind, sizeof(child->kind));
+	} else {
+		/* TODO */
+	}
+	child->animal_sex = (rand_r(&thread_rand_seed) & 1) ?
+		ANIMAL_FEMALE : ANIMAL_MALE;
+	child->key = new_key;
+	child->stamina = rand_r(&thread_rand_seed) % child->kind.max_birth_stamina;
+	child->nr_pregnant = 0;
+
+	/*
+	 * We need to lock the parent to ensure it is not killed
+	 * concurrently before giving birth.
+	 */
+	if (parent && !lock_test_single(parent)) {
+		free(child);
+		return 0;
+	}
+
+	node = cds_lfht_add_unique(live_animals.all,
+		animal_hash(new_key),
+		animal_match_all,
+		&new_key,
+		&child->all_node);
+	if (node == &child->all_node) {
+		/* Successfully added */
+		parent->nr_pregnant--;
+		if (parent)
+			unlock_single(parent);
+		return 1;
+	} else {
+		/* Another node already present */
+		free(child);
+		if (parent)
+			unlock_single(parent);
+		return 0;
+	}
 }
 
 static
@@ -313,17 +467,20 @@ int do_work(struct urcu_game_work *work)
 		second = caa_container_of(second_node,
 			struct animal, all_node);
 
+	/*
+	 * If only one of the nodes is non-null, it is the first.
+	 */
 	if (!first) {
 		first = second;
 		if (!first)
 			goto end;
 	}
 
+	if (try_birth(first, work->second_key))
+		goto end;
 	if (try_eat(first, second))
 		goto end;
 	if (try_mate(first, second))
-		goto end;
-	if (try_birth(first, work->second_key))
 		goto end;
 
 end:

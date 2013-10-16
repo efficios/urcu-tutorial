@@ -88,7 +88,6 @@ struct animal {
 	enum animal_sex animal_sex;
 	uint64_t key;			/* animal key in hash table */
 	uint64_t stamina;
-	uint64_t hungriness;
 
 	uint64_t nr_pregnant;
 
