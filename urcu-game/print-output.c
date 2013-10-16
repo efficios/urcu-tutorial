@@ -37,7 +37,8 @@ void do_print_output(void)
 
 	rcu_read_lock();
 
-	printf("--------- RCU Island Summary -------\n");
+	printf("\n");
+	printf("---------------- RCU Island Summary  -----------------\n");
 	count = 0;
 	cds_lfht_for_each_entry(live_animals.gerbil, &iter,
 			animal, kind_node)
@@ -60,7 +61,7 @@ void do_print_output(void)
 	printf("Flowers: %" PRIu64 "\n", vegetation.flowers);
 	printf("Trees: %" PRIu64 "\n", vegetation.trees);
 	pthread_mutex_unlock(&vegetation.lock);
-	printf("------------------------------------\n");
+	printf("-------- (type 'm' for menu, 'q' to quit game) -------\n");
 
 	rcu_read_unlock();
 }

@@ -147,9 +147,6 @@ void do_config(void)
 	char key;
 	int ret;
 
-	CMM_STORE_SHARED(hide_output, 1);	/* hide normal output */
-	pthread_mutex_lock(&print_output_mutex);
-
 	new_config = urcu_game_config_update_begin();
 	if (!new_config)
 		abort();
@@ -216,9 +213,7 @@ void do_config(void)
 		}
 	}
 end:
-	fflush(stdout);
-	pthread_mutex_unlock(&print_output_mutex);
-	CMM_STORE_SHARED(hide_output, 0);	/* show normal output */
+	return;
 }
 
 /*
@@ -256,9 +251,6 @@ void do_god(void)
 {
 	char key;
 	int ret;
-
-	CMM_STORE_SHARED(hide_output, 1);	/* hide normal output */
-	pthread_mutex_lock(&print_output_mutex);
 
 	for (;;) {
 		printf("\n");
@@ -338,24 +330,57 @@ void do_god(void)
 		}
 	}
 end:
-	fflush(stdout);
-	pthread_mutex_unlock(&print_output_mutex);
-	CMM_STORE_SHARED(hide_output, 0);	/* show normal output */
+	return;
 }
 
 static
 void show_menu(void)
 {
-	pthread_mutex_lock(&print_output_mutex);
 	printf("\n");
 	printf("[ root ]\n");
 	printf(" key	Description\n");
 	printf("---------------------------------\n");
-	printf("  m	Show menu\n");
 	printf("  c	Configuration menu\n");
 	printf("  g	Play god\n");
-	printf("  q	Quit game\n");
+	printf("  x	Exit root menu\n");
+}
+
+static
+void do_root_menu(void)
+{
+	char key;
+	int ret;
+
+	CMM_STORE_SHARED(hide_output, 1);	/* hide normal output */
+	pthread_mutex_lock(&print_output_mutex);
+
+	for (;;) {
+		show_menu();
+
+		ret = getch(&key);
+		if (ret < 0)
+			goto end;
+
+		DBG("User input: \'%c\'", key);
+
+		switch(key) {
+		case 'x':	/* exit menu */
+			goto end;
+		case 'c':	/* config */
+			do_config();
+			break;
+		case 'g':
+			do_god();
+			break;
+		default:
+			printf("Unknown key: \'%c\'\n", key);
+			break;
+		}
+	}
+end:
+	fflush(stdout);
 	pthread_mutex_unlock(&print_output_mutex);
+	CMM_STORE_SHARED(hide_output, 0);	/* show normal output */
 }
 
 static
@@ -371,8 +396,6 @@ void *input_thread_fct(void *data)
 		char key;
 		int ret;
 
-		show_menu();
-
 		ret = getch(&key);
 		if (ret < 0)
 			goto end;
@@ -383,15 +406,9 @@ void *input_thread_fct(void *data)
 		case 'q':	/* quit */
 			CMM_STORE_SHARED(exit_program, 1);
 			goto end;
-		case 'c':	/* config */
-			do_config();
+		case 'm':	/* show menu */
+			do_root_menu();
 			break;
-		case 'm':
-			break;	/* show menu */
-		case 'g':
-			do_god();
-			break;
-			/* TODO other keys */
 		default:
 			printf("Unknown key: \'%c\'\n", key);
 			break;
