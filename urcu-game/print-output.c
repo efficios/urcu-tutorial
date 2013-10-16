@@ -41,7 +41,7 @@ void do_print_output(void)
 
 	config = urcu_game_config_get();
 
-	printf("\n");
+	clear_screen();
 	printf("---------------- RCU Island Summary ------------------\n");
 	printf("Island size: %" PRIu64 "\n", config->island_size);
 	count = 0;

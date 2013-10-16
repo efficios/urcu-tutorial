@@ -141,6 +141,17 @@ int join_dispatch_thread(void);
 
 extern int verbose;
 
+/*
+ * This is a terminal hack. Should use ncurse, but trying to avoid extra
+ * dependencies. We start with a newline just in case the escape code
+ * does not work, so at least we're adding a white line between menus.
+ */
+static inline
+void clear_screen(void)
+{
+	printf("\n%c[2J%c[;H", (char) 27, (char) 27);
+}
+
 #define DBG(fmt, args...)						\
 	do {								\
 		if (verbose)						\

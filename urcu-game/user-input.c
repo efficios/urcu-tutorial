@@ -150,7 +150,7 @@ void do_config(void)
 		abort();
 
 	for (;;) {
-		printf("\n");
+		clear_screen();
 		printf("[ root > configuration ]\n");
 		printf("Enter the config field you wish to update:\n");
 		printf(" key	Description\n");
@@ -265,7 +265,7 @@ void do_god(void)
 	int ret;
 
 	for (;;) {
-		printf("\n");
+		clear_screen();
 		printf("[ root > god ]\n");
 		printf("Enter the animal or vegetation you wish to modify:\n");
 		printf("Modifications take effect immediately.\n");
@@ -348,7 +348,7 @@ end:
 static
 void show_menu(void)
 {
-	printf("\n");
+	clear_screen();
 	printf("[ root ]\n");
 	printf(" key	Description\n");
 	printf("---------------------------------\n");
