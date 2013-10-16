@@ -20,6 +20,7 @@
 #include <urcu.h>
 #include <urcu/rculfhash.h>
 #include "urcu-game.h"
+#include "urcu-game-config.h"
 
 int hide_output;
 /* Protect output to screen */
@@ -34,11 +35,15 @@ void do_print_output(void)
 	struct animal *animal;
 	struct cds_lfht_iter iter;
 	uint64_t count;
+	struct urcu_game_config *config;
 
 	rcu_read_lock();
 
+	config = urcu_game_config_get();
+
 	printf("\n");
-	printf("---------------- RCU Island Summary  -----------------\n");
+	printf("---------------- RCU Island Summary ------------------\n");
+	printf("Island size: %" PRIu64 "\n", config->island_size);
 	count = 0;
 	cds_lfht_for_each_entry(live_animals.gerbil, &iter,
 			animal, kind_node)
