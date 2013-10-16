@@ -26,9 +26,6 @@
 static
 pthread_t input_thread_id;
 
-static
-__thread unsigned int thread_rand_seed;
-
 /*
  * Read characters from terminal, without awaiting for newline and
  * without echo. Return 0 if OK, -1 on end of file or error.

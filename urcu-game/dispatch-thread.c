@@ -24,9 +24,6 @@ static
 pthread_t dispatch_thread_id;
 
 static
-__thread unsigned int thread_rand_seed;
-
-static
 void do_dispatch(void)
 {
 	struct urcu_game_config *config;

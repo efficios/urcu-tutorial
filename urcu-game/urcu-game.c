@@ -24,6 +24,8 @@
 static
 long nr_worker_threads = 8;
 
+__thread unsigned int thread_rand_seed;
+
 int verbose, exit_program;
 
 struct live_animals live_animals;

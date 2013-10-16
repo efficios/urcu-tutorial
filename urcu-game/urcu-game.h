@@ -110,17 +110,23 @@ struct vegetation {
 	pthread_mutex_t lock;
 };
 
-/* Threads */
-
+/* Game logic */
 extern struct live_animals live_animals;
 extern struct vegetation vegetation;
 
+int try_birth(struct animal *parent, uint64_t new_key, int god);
+void kill_animal(struct animal *animal);
+int try_eat(struct animal *first, struct animal *second);
+int try_birth(struct animal *parent, uint64_t new_key, int god);
+int try_mate(struct animal *first, struct animal *second);
+struct animal *find_animal(uint64_t key);
+
+/* Threads */
 extern int exit_program;
 extern int hide_output;
 extern pthread_mutex_t print_output_mutex;
 
-int try_birth(struct animal *parent, uint64_t new_key, int god);
-void kill_animal(struct animal *animal);
+extern __thread unsigned int thread_rand_seed;
 
 int create_input_thread(void);
 int join_input_thread(void);

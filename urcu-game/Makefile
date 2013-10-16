@@ -20,11 +20,15 @@ HEADERS = urcu-game.h urcu-game-config.h worker-thread.h ht-hash.h
 all: urcu-game
 
 urcu-game: urcu-game.o urcu-game-config.o worker-thread.o user-input.o \
-		print-output.o dispatch-thread.o
+		print-output.o dispatch-thread.o urcu-game-logic.o
 	$(CC) $(CFLAGS) $(LDFLAGS) $(AM_CFLAGS) $(AM_LDFLAGS) \
 		-o $@ $+ $(LIBS)
 
 urcu-game.o: urcu-game.c $(HEADERS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(AM_CPPFLAGS) $(AM_CFLAGS) \
+		-c -o $@ $<
+
+urcu-game-logic.o: urcu-game-logic.c $(HEADERS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(AM_CPPFLAGS) $(AM_CFLAGS) \
 		-c -o $@ $<
 
