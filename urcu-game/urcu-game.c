@@ -26,7 +26,7 @@ long nr_worker_threads = 8;
 
 __thread unsigned int thread_rand_seed;
 
-int verbose, exit_program;
+int verbose, exit_program, clear_screen_enable = 1;
 
 struct live_animals live_animals;
 struct vegetation vegetation = {
@@ -37,10 +37,13 @@ struct vegetation vegetation = {
 
 void show_usage(int argc, char **argv)
 {
-	printf("Usage: %s <options>\n", argv[0]);
+	printf("Usage: %s <OPTIONS>\n", argv[0]);
 	printf("OPTIONS:\n");
-	printf("	[-v] Verbose output.\n");
-	printf("	[-w nr_threads] number of worker threads.\n");
+        printf("        [-v]             Verbose output.\n");
+        printf("        [-c]             Disable clear screen.\n");
+        printf("        [-w nr_threads]  Number of worker threads.\n");
+	printf("        [-h]             Show this help.\n");
+	printf("\n");
 }
 
 int parse_args(int argc, char **argv)
@@ -68,6 +71,12 @@ int parse_args(int argc, char **argv)
 		case 'v':
 			verbose = 1;
 			break;
+		case 'c':
+			clear_screen_enable = 0;
+			break;
+		case 'h':
+			err = 1;
+			goto end;
 		default:
 			printf("Unrecognised option %s\n", argv[i]);
 			err = -1;
@@ -100,8 +109,12 @@ int main(int argc, char **argv)
 	rcu_register_thread();
 
 	err = parse_args(argc, argv);
-	if (err)
+	if (err < 0)
 		goto end;
+	else if (err > 0) {
+		err = 0;
+		goto end;
+	}
 
 	printf("Welcome to the Island of RCU\n\n");
 

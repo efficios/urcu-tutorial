@@ -139,7 +139,7 @@ int join_dispatch_thread(void);
 
 /* Helpers */
 
-extern int verbose;
+extern int verbose, clear_screen_enable;
 
 /*
  * This is a terminal hack. Should use ncurse, but trying to avoid extra
@@ -149,7 +149,9 @@ extern int verbose;
 static inline
 void clear_screen(void)
 {
-	printf("\n%c[2J%c[;H", (char) 27, (char) 27);
+	printf("\n");
+	if (clear_screen_enable)
+		printf("%c[2J%c[;H", (char) 27, (char) 27);
 }
 
 #define DBG(fmt, args...)						\

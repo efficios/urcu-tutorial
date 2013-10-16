@@ -112,6 +112,15 @@ end:
 }
 
 static
+void wait_for_key(void)
+{
+	char key;
+
+	printf("Press any key to continue...\n");
+	(void) getch(&key);
+}
+
+static
 void get_config_entry_uint64(const char *name,
 		uint64_t *value)
 {
@@ -125,6 +134,7 @@ void get_config_entry_uint64(const char *name,
 	if (ret < 0) {
 		fprintf(stderr, "Error: expected digital input for %s\n",
 			name);
+		wait_for_key();
 		return;
 	}
 	errno = 0;
@@ -133,6 +143,7 @@ void get_config_entry_uint64(const char *name,
 		perror("fscanf");
 		fprintf(stderr, "Error: expected digital input for %s\n",
 			name);
+		wait_for_key();
 		return;
 	}
 	*value = new_size;
@@ -176,10 +187,12 @@ void do_config(void)
 		case 'x':	/* save and quit */
 			printf("Configuration saved.\n");
 			urcu_game_config_update_end(new_config);
+			wait_for_key();
 			goto end;
 		case 'q':	/* cancel and quit */
 			printf("Configuration update cancelled.\n");
 			urcu_game_config_update_abort(new_config);
+			wait_for_key();
 			goto end;
 		case 'i':	/* island size */
 		{
@@ -202,6 +215,7 @@ void do_config(void)
 				&new_delay);
 			if (new_delay > INT_MAX) {
 				printf("Error: delay specified is too large.\n");
+				wait_for_key();
 				break;
 			}
 			new_config->step_delay = (int) new_delay;
@@ -221,6 +235,7 @@ void do_config(void)
 			break;
 		default:
 			printf("Unknown key: \'%c\'\n", key);
+			wait_for_key();
 			break;
 		}
 	}
@@ -338,6 +353,7 @@ void do_god(void)
 		}
 		default:
 			printf("Unknown key: \'%c\'\n", key);
+			wait_for_key();
 			break;
 		}
 	}
@@ -386,6 +402,7 @@ void do_root_menu(void)
 			break;
 		default:
 			printf("Unknown key: \'%c\'\n", key);
+			wait_for_key();
 			break;
 		}
 	}
