@@ -201,7 +201,8 @@ int try_eat(struct animal *first, struct animal *second)
 				pthread_mutex_unlock(&vegetation.lock);
 				unlock_single(first);
 			}
-		} else if (first->kind.diet & DIET_TREES) {
+		}
+		if (!ret && first->kind.diet & DIET_TREES) {
 			if (lock_test_single(first)) {
 				pthread_mutex_lock(&vegetation.lock);
 				if (vegetation.trees) {
@@ -288,10 +289,14 @@ int try_eat(struct animal *first, struct animal *second)
 	if (!ret) {
 		if (lock_test_single(first)) {
 			first->stamina--;
+			if (!first->stamina)
+				kill_animal(first);
 			unlock_single(first);
 		}
 		if (second && lock_test_single(second)) {
 			second->stamina--;
+			if (!first->stamina)
+				kill_animal(second);
 			unlock_single(second);
 		}
 	}
