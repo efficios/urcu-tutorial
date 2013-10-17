@@ -1,0 +1,7 @@
+#!/bin/sh
+
+cd exercises
+./populate-exercises.sh
+cd ..
+
+

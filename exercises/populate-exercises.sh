@@ -3,6 +3,16 @@
 TOP_DIR=$(pwd)
 GAME_DIR=${TOP_DIR}/../urcu-game
 
+if [ -e ${TOP_DIR}/questions/ ]; then
+	echo "Refusing to populate examples, ${TOP_DIR}/questions/ exists!"
+	exit 1
+fi
+
+if [ -e ${TOP_DIR}/answers/ ]; then
+	echo "Refusing to populate examples, ${TOP_DIR}/answers/ exists!"
+	exit 1
+fi
+
 mkdir ${TOP_DIR}/questions/
 mkdir ${TOP_DIR}/answers/
 
