@@ -1,51 +1,104 @@
-diff urcu-tutorial/urcu-game-tmp/urcu-game.c urcu-tutorial/urcu-game/urcu-game.c
-194a195,199
-> 	/*
-> 	 * Clean exit: ensure in-flight call_rcu() work is completed.
-> 	 */
-> 	rcu_barrier();
-> 
-diff urcu-tutorial/urcu-game-tmp/urcu-game-config.c urcu-tutorial/urcu-game/urcu-game-config.c
-34a35,43
-> static
-> void config_free(struct rcu_head *head)
-> {
-> 	struct urcu_game_config *config;
-> 
-> 	config = caa_container_of(head, struct urcu_game_config, rcu_head);
-> 	free(config);
-> }
-> 
-71,74c80,81
-< 	if (old_config) {
-< 		synchronize_rcu();
-< 		free(old_config);
-< 	}
----
-> 	if (old_config)
-> 		call_rcu(&old_config->rcu_head, config_free);
-diff urcu-tutorial/urcu-game-tmp/urcu-game-config.h urcu-tutorial/urcu-game/urcu-game-config.h
-19a20
-> #include <urcu-call-rcu.h>	/* rcu_head */
-diff urcu-tutorial/urcu-game-tmp/urcu-game.h urcu-tutorial/urcu-game/urcu-game.h
-63a64,65
-> 
-> 	struct rcu_head rcu_head;	/* Delayed reclaim */
-88a91
-> 	struct rcu_head rcu_head;	/* Delayed reclaim */
-diff urcu-tutorial/urcu-game-tmp/urcu-game-logic.c urcu-tutorial/urcu-game/urcu-game-logic.c
-124a125,133
-> static
-> void free_animal(struct rcu_head *head)
-> {
-> 	struct animal *animal;
-> 
-> 	animal = caa_container_of(head, struct animal, rcu_head);
-> 	free(animal);
-> }
-> 
-152,153c161
-< 	synchronize_rcu();
-< 	free(animal);
----
-> 	call_rcu(&animal->rcu_head, free_animal);
+diff -urN urcu-tutorial/urcu-game/urcu-game.c urcu-tutorial/exercice2/urcu-game.c
+--- urcu-tutorial/urcu-game/urcu-game.c	2013-10-17 18:43:46.499971525 -0400
++++ urcu-tutorial/exercice2/urcu-game.c	2013-10-17 18:44:10.755937739 -0400
+@@ -192,6 +192,11 @@
+ 	if (err)
+ 		goto end;
+ 
++	/*
++	 * Clean exit: ensure in-flight call_rcu() work is completed.
++	 */
++	rcu_barrier();
++
+ 	printf("Goodbye!\n");
+ 
+ end:
+diff -urN urcu-tutorial/urcu-game/urcu-game-config.c urcu-tutorial/exercice2/urcu-game-config.c
+--- urcu-tutorial/urcu-game/urcu-game-config.c	2013-10-17 18:43:46.495971556 -0400
++++ urcu-tutorial/exercice2/urcu-game-config.c	2013-10-17 18:44:10.755937739 -0400
+@@ -32,6 +32,15 @@
+ static
+ pthread_mutex_t config_mutex = PTHREAD_MUTEX_INITIALIZER;
+ 
++static
++void config_free(struct rcu_head *head)
++{
++	struct urcu_game_config *config;
++
++	config = caa_container_of(head, struct urcu_game_config, rcu_head);
++	free(config);
++}
++
+ struct urcu_game_config *urcu_game_config_get(void)
+ {
+ 	assert(rcu_read_ongoing());
+@@ -68,10 +77,8 @@
+ 	old_config = current_config;
+ 	rcu_set_pointer(&current_config, new_config);
+ 	pthread_mutex_unlock(&config_mutex);
+-	if (old_config) {
+-		synchronize_rcu();
+-		free(old_config);
+-	}
++	if (old_config)
++		call_rcu(&old_config->rcu_head, config_free);
+ }
+ 
+ void urcu_game_config_update_abort(struct urcu_game_config *new_config)
+diff -urN urcu-tutorial/urcu-game/urcu-game.h urcu-tutorial/exercice2/urcu-game.h
+--- urcu-tutorial/urcu-game/urcu-game.h	2013-10-17 18:43:46.499971525 -0400
++++ urcu-tutorial/exercice2/urcu-game.h	2013-10-17 18:45:28.251829475 -0400
+@@ -19,6 +19,7 @@
+ #include <pthread.h>
+ #include <stdio.h>
+ #include <urcu/rculfhash.h>
++#include <urcu-call-rcu.h>	/* rcu_head */
+ 
+ #define URCU_GAME_REFRESH_PERIOD	1	/* seconds */
+ 
+@@ -61,6 +62,8 @@
+ 	struct animal_kind gerbil;
+ 	struct animal_kind cat;
+ 	struct animal_kind snake;
++
++	struct rcu_head rcu_head;	/* Delayed reclaim */
+ };
+ 
+ enum animal_sex {
+@@ -86,6 +89,7 @@
+ 	pthread_mutex_t lock;		/* mutual exclusion on animal */
+ 	struct cds_lfht_node kind_node;	/* node in kind hash table */
+ 	struct cds_lfht_node all_node;	/* node in all animals hash table */
++	struct rcu_head rcu_head;	/* Delayed reclaim */
+ };
+ 
+ /*
+diff -urN urcu-tutorial/urcu-game/urcu-game-logic.c urcu-tutorial/exercice2/urcu-game-logic.c
+--- urcu-tutorial/urcu-game/urcu-game-logic.c	2013-10-17 18:43:46.495971556 -0400
++++ urcu-tutorial/exercice2/urcu-game-logic.c	2013-10-17 18:44:10.759937695 -0400
+@@ -122,6 +122,15 @@
+ 	return ret;
+ }
+ 
++static
++void free_animal(struct rcu_head *head)
++{
++	struct animal *animal;
++
++	animal = caa_container_of(head, struct animal, rcu_head);
++	free(animal);
++}
++
+ /*
+  * Called with RCU read-side lock held.
+  * Needs to be called with animal lock held, or as single thread during
+@@ -149,8 +158,7 @@
+ 	}
+ 	delret = cds_lfht_del(ht, &animal->kind_node);
+ 	assert(delret == 0);
+-	synchronize_rcu();
+-	free(animal);
++	call_rcu(&animal->rcu_head, free_animal);
+ }
+ 
+ /*
