@@ -1,6 +1,0 @@
-
-* Exercice 1
-
-Unbalanced RCU read-side lock.
-
-
