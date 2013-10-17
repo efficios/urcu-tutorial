@@ -61,8 +61,6 @@ struct urcu_game_config {
 	struct animal_kind gerbil;
 	struct animal_kind cat;
 	struct animal_kind snake;
-
-	struct rcu_head rcu_head;	/* Delayed reclaim */
 };
 
 enum animal_sex {
@@ -88,7 +86,6 @@ struct animal {
 	pthread_mutex_t lock;		/* mutual exclusion on animal */
 	struct cds_lfht_node kind_node;	/* node in kind hash table */
 	struct cds_lfht_node all_node;	/* node in all animals hash table */
-	struct rcu_head rcu_head;	/* Delayed reclaim */
 };
 
 /*

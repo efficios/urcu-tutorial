@@ -32,15 +32,6 @@ struct urcu_game_config *current_config;
 static
 pthread_mutex_t config_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static
-void config_free(struct rcu_head *head)
-{
-	struct urcu_game_config *config;
-
-	config = caa_container_of(head, struct urcu_game_config, rcu_head);
-	free(config);
-}
-
 struct urcu_game_config *urcu_game_config_get(void)
 {
 	assert(rcu_read_ongoing());
@@ -77,8 +68,10 @@ void urcu_game_config_update_end(struct urcu_game_config *new_config)
 	old_config = current_config;
 	rcu_set_pointer(&current_config, new_config);
 	pthread_mutex_unlock(&config_mutex);
-	if (old_config)
-		call_rcu(&old_config->rcu_head, config_free);
+	if (old_config) {
+		synchronize_rcu();
+		free(old_config);
+	}
 }
 
 void urcu_game_config_update_abort(struct urcu_game_config *new_config)

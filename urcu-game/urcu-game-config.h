@@ -17,7 +17,6 @@
  */
 
 #include <stdint.h>
-#include <urcu-call-rcu.h>	/* rcu_head */
 #include "urcu-game.h"
 
 /*

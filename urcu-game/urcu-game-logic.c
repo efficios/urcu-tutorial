@@ -122,15 +122,6 @@ int try_mate(struct animal *first, struct animal *second)
 	return ret;
 }
 
-static
-void free_animal(struct rcu_head *head)
-{
-	struct animal *animal;
-
-	animal = caa_container_of(head, struct animal, rcu_head);
-	free(animal);
-}
-
 /*
  * Called with RCU read-side lock held.
  * Needs to be called with animal lock held, or as single thread during
@@ -158,7 +149,8 @@ void kill_animal(struct animal *animal)
 	}
 	delret = cds_lfht_del(ht, &animal->kind_node);
 	assert(delret == 0);
-	call_rcu(&animal->rcu_head, free_animal);
+	synchronize_rcu();
+	free(animal);
 }
 
 /*
