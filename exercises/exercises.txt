@@ -12,7 +12,7 @@ Debug with gdb, explain lockup scenario.
 
 * Exercise 2
 
-Modify game to use call_rcu() worker thread rather than
+Modify game configuration to use call_rcu() worker thread rather than
 synchronize_rcu() for reclaim.
 
 
