@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <urcu/rculfhash.h>
+#include <urcu-call-rcu.h>
 
 #define URCU_GAME_REFRESH_PERIOD	1	/* seconds */
 
@@ -86,6 +87,7 @@ struct animal {
 	pthread_mutex_t lock;		/* mutual exclusion on animal */
 	struct cds_lfht_node kind_node;	/* node in kind hash table */
 	struct cds_lfht_node all_node;	/* node in all animals hash table */
+	struct rcu_head rcu_head;	/* Delayed reclaim */
 };
 
 /*

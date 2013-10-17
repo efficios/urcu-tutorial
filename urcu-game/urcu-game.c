@@ -192,6 +192,11 @@ int main(int argc, char **argv)
 	if (err)
 		goto end;
 
+	/*
+	 * Clean exit: ensure in-flight call_rcu() work is completed.
+	 */
+	rcu_barrier();
+
 	printf("Goodbye!\n");
 
 end:
