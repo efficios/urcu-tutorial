@@ -1,0 +1,51 @@
+diff urcu-tutorial/urcu-game-tmp/urcu-game.c urcu-tutorial/urcu-game/urcu-game.c
+194a195,199
+> 	/*
+> 	 * Clean exit: ensure in-flight call_rcu() work is completed.
+> 	 */
+> 	rcu_barrier();
+> 
+diff urcu-tutorial/urcu-game-tmp/urcu-game-config.c urcu-tutorial/urcu-game/urcu-game-config.c
+34a35,43
+> static
+> void config_free(struct rcu_head *head)
+> {
+> 	struct urcu_game_config *config;
+> 
+> 	config = caa_container_of(head, struct urcu_game_config, rcu_head);
+> 	free(config);
+> }
+> 
+71,74c80,81
+< 	if (old_config) {
+< 		synchronize_rcu();
+< 		free(old_config);
+< 	}
+---
+> 	if (old_config)
+> 		call_rcu(&old_config->rcu_head, config_free);
+diff urcu-tutorial/urcu-game-tmp/urcu-game-config.h urcu-tutorial/urcu-game/urcu-game-config.h
+19a20
+> #include <urcu-call-rcu.h>	/* rcu_head */
+diff urcu-tutorial/urcu-game-tmp/urcu-game.h urcu-tutorial/urcu-game/urcu-game.h
+63a64,65
+> 
+> 	struct rcu_head rcu_head;	/* Delayed reclaim */
+88a91
+> 	struct rcu_head rcu_head;	/* Delayed reclaim */
+diff urcu-tutorial/urcu-game-tmp/urcu-game-logic.c urcu-tutorial/urcu-game/urcu-game-logic.c
+124a125,133
+> static
+> void free_animal(struct rcu_head *head)
+> {
+> 	struct animal *animal;
+> 
+> 	animal = caa_container_of(head, struct animal, rcu_head);
+> 	free(animal);
+> }
+> 
+152,153c161
+< 	synchronize_rcu();
+< 	free(animal);
+---
+> 	call_rcu(&animal->rcu_head, free_animal);
