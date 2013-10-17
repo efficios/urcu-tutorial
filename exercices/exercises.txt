@@ -25,6 +25,12 @@ Modify game to use QSBR (urcu-qsbr.h) flavor rather than read lock
 * Exercise 4
 
 Debug deadlock involving RCU and mutexes.
+e.g.
+ print_output_mutex
+ -> synchronize_rcu()
+
+ rcu_read_lock()
+ -> print_output_mutex
 
 
 * Exercise 5
