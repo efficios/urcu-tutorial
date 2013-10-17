@@ -17,3 +17,7 @@
 *.app
 
 urcu-game/urcu-game
+
+# Generated
+exercises/questions
+exercises/answers
