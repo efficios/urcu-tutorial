@@ -480,7 +480,10 @@ void apocalypse(void)
 	rcu_read_lock();
 	cds_lfht_for_each_entry(ht, &iter, animal, all_node) {
 		DBG("Kill animal %" PRIu64, animal->key);
-		kill_animal(animal);
+		pthread_mutex_lock(&animal->lock);
+		if (!cds_lfht_is_node_deleted(&animal->all_node))
+			kill_animal(animal);
+		pthread_mutex_unlock(&animal->lock);
 	}
 	rcu_read_unlock();
 }
