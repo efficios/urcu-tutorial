@@ -295,7 +295,7 @@ int try_eat(struct animal *first, struct animal *second)
 		}
 		if (second && lock_test_single(second)) {
 			second->stamina--;
-			if (!first->stamina)
+			if (!second->stamina)
 				kill_animal(second);
 			unlock_single(second);
 		}
