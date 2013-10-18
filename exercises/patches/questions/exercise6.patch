@@ -1,0 +1,14 @@
+diff urcu-tutorial/urcu-game/urcu-game-logic.c urcu-tutorial/urcu-game-race/urcu-game-logic.c
+164a165,166
+> 	delret = cds_lfht_del(live_animals.all, &animal->all_node);
+> 	assert(delret == 0);
+179,187d180
+< 	assert(delret == 0);
+< 	/*
+< 	 * We need to remove animal from "all" hash table _after_
+< 	 * removing it from the kind hash table, to match the fact that
+< 	 * existence in the "all" hash table defines the life-time of
+< 	 * the object. Removing in the reverse order can trigger an
+< 	 * abort() in the check for the ht_kind add_unique.
+< 	 */
+< 	delret = cds_lfht_del(live_animals.all, &animal->all_node);
