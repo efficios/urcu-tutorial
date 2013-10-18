@@ -96,10 +96,12 @@ void apocalypse(struct cds_lfht *ht)
 	struct animal *animal;
 
 	DBG("Apocalypse");
+	rcu_read_lock();
 	cds_lfht_for_each_entry(ht, &iter, animal, all_node) {
 		DBG("Kill animal %" PRIu64, animal->key);
 		kill_animal(animal);
 	}
+	rcu_read_unlock();
 }
 
 int main(int argc, char **argv)

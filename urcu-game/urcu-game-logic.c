@@ -1,5 +1,5 @@
 /*
- * urcu-game-logic.h
+ * urcu-game-logic.c
  *
  * Copyright (C) 2013  Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  *
