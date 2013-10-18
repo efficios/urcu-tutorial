@@ -363,17 +363,32 @@ int try_birth(struct animal *parent, uint64_t new_key, int god)
 	child->stamina = rand_r(&thread_rand_seed)
 		% child->kind.max_birth_stamina;
 	child->nr_pregnant = 0;
+	pthread_mutex_init(&child->lock, NULL);
+
+	assert(child->kind.max_pregnant > 0);
 
 	/*
 	 * We need to lock the parent to ensure it is not killed
 	 * concurrently before giving birth.
+	 *
+	 * We hold the child lock while adding into the hash tables to
+	 * ensure that adding into the kind hash table will always
+	 * succeed whenever adding into the "all" hash table did
+	 * succeed. This blocks any "kill" action on the child while
+	 * being added only to one hash table, therefore ensuring
+	 * consistency.
 	 */
-	if (!god && !lock_test_single(parent)) {
-		free(child);
-		return 0;
+	if (!god) {
+		if (!lock_test_pair(parent, child)) {
+			free(child);
+			return 0;
+		}
+	} else {
+		if (!lock_test_single(child)) {
+			free(child);
+			return 0;
+		}
 	}
-
-	assert(child->kind.max_pregnant > 0);
 
 	node = cds_lfht_add_unique(live_animals.all,
 		animal_hash(new_key),
@@ -391,13 +406,17 @@ int try_birth(struct animal *parent, uint64_t new_key, int god)
 		/* Successfully added */
 		parent->nr_pregnant--;
 		if (!god)
-			unlock_single(parent);
+			unlock_pair(parent, child);
+		else
+			unlock_single(child);
 		return 1;
 	} else {
 		/* Another node already present */
-		free(child);
 		if (!god)
-			unlock_single(parent);
+			unlock_pair(parent, child);
+		else
+			unlock_single(child);
+		free(child);
 		return 0;
 	}
 }
