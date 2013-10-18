@@ -42,5 +42,5 @@ Modify game to use QSBR (urcu-qsbr.h) flavor rather than read lock
 
 * Exercise 5
 
-Implement a RCU list of most recently modified animals. Last 3 animals'
-key are printed in output summary (RCU read-side).
+Implement a RCU list of most recently born living animals. Last 3
+animals' key are printed in output summary (RCU read-side).
