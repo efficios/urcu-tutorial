@@ -44,3 +44,12 @@ Modify game to use QSBR (urcu-qsbr.h) flavor rather than read lock
 
 Implement a RCU list of most recently born living animals. Last 3
 animals' key are printed in output summary (RCU read-side).
+
+* Exercise 6
+
+Diagnose a race condition. The race condition is due to a reversed order
+of removal from the "all" hash table vs "per kind" hash table, not
+matching the expected logic in try_birth().
+
+Diagnosing this issue requires stress-tests: small hash table, very
+frequent updates.
