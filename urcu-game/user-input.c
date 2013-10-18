@@ -243,36 +243,6 @@ end:
 	return;
 }
 
-/*
- * Try to create at most "nr" animals. No guarantee of success.
- */
-static
-void create_animals(enum animal_types type, uint64_t nr)
-{
-	uint64_t i;
-	struct animal parent;
-	struct urcu_game_config *config;
-
-	rcu_read_lock();
-	config = urcu_game_config_get();
-	/*
-	 * When we create animal as god, we only care about animal type.
-	 * The rest is derived from the current configuration.
-	 */
-	parent.kind.animal = type;
-
-	for (i = 0; i < nr; i++) {
-		uint64_t child_key =
-			rand_r(&thread_rand_seed) % config->island_size;
-		int ret;
-
-		ret = try_birth(&parent, child_key, 1);
-		DBG("God create animal %d, return: %d",
-			type, ret);
-	}
-	rcu_read_unlock();
-}
-
 static
 void do_god(void)
 {

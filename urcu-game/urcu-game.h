@@ -121,6 +121,8 @@ int try_eat(struct animal *first, struct animal *second);
 int try_birth(struct animal *parent, uint64_t new_key, int god);
 int try_mate(struct animal *first, struct animal *second);
 struct animal *find_animal(uint64_t key);
+void apocalypse(void);
+void create_animals(enum animal_types type, uint64_t nr);
 
 /* Threads */
 extern int exit_program;

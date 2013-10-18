@@ -469,3 +469,47 @@ struct animal *find_animal(uint64_t key)
 			struct animal, all_node);
 	return animal;
 }
+
+void apocalypse(void)
+{
+	struct cds_lfht *ht = live_animals.all;
+	struct cds_lfht_iter iter;
+	struct animal *animal;
+
+	DBG("Apocalypse");
+	rcu_read_lock();
+	cds_lfht_for_each_entry(ht, &iter, animal, all_node) {
+		DBG("Kill animal %" PRIu64, animal->key);
+		kill_animal(animal);
+	}
+	rcu_read_unlock();
+}
+
+/*
+ * Try to create at most "nr" animals. No guarantee of success.
+ */
+void create_animals(enum animal_types type, uint64_t nr)
+{
+	uint64_t i;
+	struct animal parent;
+	struct urcu_game_config *config;
+
+	rcu_read_lock();
+	config = urcu_game_config_get();
+	/*
+	 * When we create animal as god, we only care about animal type.
+	 * The rest is derived from the current configuration.
+	 */
+	parent.kind.animal = type;
+
+	for (i = 0; i < nr; i++) {
+		uint64_t child_key =
+			rand_r(&thread_rand_seed) % config->island_size;
+		int ret;
+
+		ret = try_birth(&parent, child_key, 1);
+		DBG("God create animal %d, return: %d",
+			type, ret);
+	}
+	rcu_read_unlock();
+}
