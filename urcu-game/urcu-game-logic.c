@@ -57,6 +57,20 @@ error_first:
 }
 
 static
+void lock_pair(struct animal *first, struct animal *second)
+{
+	struct animal *tmp;
+
+	if (first->key > second->key) {
+		tmp = first;
+		first = second;
+		second = tmp;
+	}
+	pthread_mutex_lock(&first->lock);
+	pthread_mutex_lock(&second->lock);
+}
+
+static
 void unlock_pair(struct animal *first, struct animal *second)
 {
 	pthread_mutex_unlock(&second->lock);
@@ -76,6 +90,13 @@ error_first:
 	pthread_mutex_unlock(&first->lock);
 	return 0;	/* error */
 }
+
+static
+void lock_single(struct animal *first)
+{
+	pthread_mutex_lock(&first->lock);
+}
+
 
 static
 void unlock_single(struct animal *first)
@@ -379,15 +400,14 @@ int try_birth(struct animal *parent, uint64_t new_key, int god)
 	 * consistency.
 	 */
 	if (!god) {
-		if (!lock_test_pair(parent, child)) {
+		lock_pair(parent, child);
+		if (cds_lfht_is_node_deleted(&parent->all_node)) {
+			unlock_pair(parent, child);
 			free(child);
 			return 0;
 		}
 	} else {
-		if (!lock_test_single(child)) {
-			free(child);
-			return 0;
-		}
+		lock_single(child);
 	}
 
 	node = cds_lfht_add_unique(live_animals.all,
