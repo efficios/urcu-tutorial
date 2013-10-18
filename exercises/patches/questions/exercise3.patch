@@ -1,0 +1,20 @@
+diff --git a/urcu-game/print-output.c b/urcu-game/print-output.c
+index 6315b1d..3e94c56 100644
+--- a/urcu-game/print-output.c
++++ b/urcu-game/print-output.c
+@@ -79,6 +79,7 @@ void *output_thread_fct(void *data)
+ 
+ 	/* Read keys typed by the user */
+ 	while (!CMM_LOAD_SHARED(exit_program)) {
++		rcu_read_lock();
+ 		if (!CMM_LOAD_SHARED(hide_output)) {
+ 			pthread_mutex_lock(&print_output_mutex);
+ 			DBG("Refresh screen.");
+@@ -88,6 +89,7 @@ void *output_thread_fct(void *data)
+ 			fflush(stdout);
+ 			pthread_mutex_unlock(&print_output_mutex);
+ 		}
++		rcu_read_unlock();
+ 		sleep(URCU_GAME_REFRESH_PERIOD);
+ 	}
+ 
