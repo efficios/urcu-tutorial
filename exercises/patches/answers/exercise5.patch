@@ -109,9 +109,9 @@ diff -urN urcu-tutorial/urcu-game/urcu-game.h urcu-tutorial/urcu-game-lru/urcu-g
 diff -urN urcu-tutorial/urcu-game/urcu-game-logic.c urcu-tutorial/urcu-game-lru/urcu-game-logic.c
 --- urcu-tutorial/urcu-game/urcu-game-logic.c	2013-10-17 21:31:41.446554084 -0400
 +++ urcu-tutorial/urcu-game-lru/urcu-game-logic.c	2013-10-17 21:24:51.043127515 -0400
-@@ -158,6 +158,12 @@
- 	}
- 	delret = cds_lfht_del(ht, &animal->kind_node);
+@@ -186,6 +186,12 @@
+ 	 */
+ 	delret = cds_lfht_del(live_animals.all, &animal->all_node);
  	assert(delret == 0);
 +
 +	/* Remove from LRU list of birth */
@@ -122,7 +122,7 @@ diff -urN urcu-tutorial/urcu-game/urcu-game-logic.c urcu-tutorial/urcu-game-lru/
  	call_rcu(&animal->rcu_head, free_animal);
  }
  
-@@ -405,6 +411,12 @@
+@@ -432,6 +438,12 @@
  			abort();
  		/* Successfully added */
  		parent->nr_pregnant--;

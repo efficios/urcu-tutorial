@@ -1,12 +1,10 @@
-diff --git a/urcu-game/user-input.c b/urcu-game/user-input.c
+diff --git a/urcu-game/urcu-game-logic.c b/urcu-game/urcu-game-logic.c
 index 9337943..9654493 100644
---- a/urcu-game/user-input.c
-+++ b/urcu-game/user-input.c
-@@ -270,7 +270,6 @@ void create_animals(enum animal_types type, uint64_t nr)
+--- a/urcu-game/urcu-game-logic.c
++++ b/urcu-game/urcu-game-logic.c
+@@ -511,5 +511,4 @@ void create_animals(enum animal_types type, uint64_t nr)
  		DBG("God create animal %d, return: %d",
  			type, ret);
  	}
 -	rcu_read_unlock();
  }
- 
- static

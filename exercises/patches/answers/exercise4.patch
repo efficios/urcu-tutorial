@@ -163,6 +163,22 @@ diff -urN urcu-tutorial/urcu-game/urcu-game-logic.c urcu-tutorial/urcu-game-qsbr
  #include <inttypes.h>
  #include <string.h>
  #include "urcu-game.h"
+@@ -494,7 +495,7 @@
+ 	struct animal parent;
+ 	struct urcu_game_config *config;
+ 
+-	rcu_read_lock();
++	rcu_read_lock();	/* no-op */
+ 	config = urcu_game_config_get();
+ 	/*
+ 	 * When we create animal as god, we only care about animal type.
+@@ -511,5 +512,5 @@
+ 		DBG("God create animal %d, return: %d",
+ 			type, ret);
+ 	}
+-	rcu_read_unlock();
++	rcu_read_unlock();	/* no-op */
+ }
 diff -urN urcu-tutorial/urcu-game/user-input.c urcu-tutorial/urcu-game-qsbr/user-input.c
 --- urcu-tutorial/urcu-game/user-input.c	2013-10-17 20:47:40.641587568 -0400
 +++ urcu-tutorial/urcu-game-qsbr/user-input.c	2013-10-17 20:47:04.617637889 -0400
@@ -235,24 +251,6 @@ diff -urN urcu-tutorial/urcu-game/user-input.c urcu-tutorial/urcu-game-qsbr/user
  static
  void get_config_entry_uint64(const char *name,
  		uint64_t *value)
-@@ -253,7 +265,7 @@
- 	struct animal parent;
- 	struct urcu_game_config *config;
- 
--	rcu_read_lock();
-+	rcu_read_lock();	/* no-op */
- 	config = urcu_game_config_get();
- 	/*
- 	 * When we create animal as god, we only care about animal type.
-@@ -270,7 +282,7 @@
- 		DBG("God create animal %d, return: %d",
- 			type, ret);
- 	}
--	rcu_read_unlock();
-+	rcu_read_unlock();	/* no-op */
- }
- 
- static
 @@ -380,7 +392,13 @@
  	int ret;
  
