@@ -16,21 +16,28 @@ Modify game configuration to use call_rcu() worker thread rather than
 synchronize_rcu() for reclaim.
 
 
+* Exercise 4
+
+Debug deadlock involving RCU and mutexes.
+
+Thread A:
+  - do_root_menu()
+    - lock print_output_mutex
+    - call do_config()
+      - call urcu_game_config_update_end()
+        - call synchronize_rcu()
+        - waits for RCU read-side critical sections
+
+Thread B:
+  - output_thread_fct()
+    - rcu_read_lock()
+    - lock print_output_mutex
+
+
 * Exercise 3
 
 Modify game to use QSBR (urcu-qsbr.h) flavor rather than read lock
 (urcu.h) flavor.
-
-
-* Exercise 4
-
-Debug deadlock involving RCU and mutexes.
-e.g.
- print_output_mutex
- -> synchronize_rcu()
-
- rcu_read_lock()
- -> print_output_mutex
 
 
 * Exercise 5
