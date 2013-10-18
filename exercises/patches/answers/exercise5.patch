@@ -1,0 +1,137 @@
+diff -urN urcu-tutorial/urcu-game/print-output.c urcu-tutorial/urcu-game-lru/print-output.c
+--- urcu-tutorial/urcu-game/print-output.c	2013-10-17 21:31:41.446554084 -0400
++++ urcu-tutorial/urcu-game-lru/print-output.c	2013-10-17 21:26:54.674956007 -0400
+@@ -19,6 +19,7 @@
+ #include <urcu/system.h>
+ #include <urcu.h>
+ #include <urcu/rculfhash.h>
++#include <urcu/rculist.h>
+ #include "urcu-game.h"
+ #include "urcu-game-config.h"
+ 
+@@ -29,6 +30,39 @@
+ static
+ pthread_t output_thread_id;
+ 
++/*
++ * Called with RCU read-side lock held.
++ */
++static
++void print_lru_list(void)
++{
++	struct animal *animal;
++	int count = 0;
++
++	printf("Recent newborn living animals:");
++	cds_list_for_each_entry_rcu(animal, &live_animals.lru_head, lru_node) {
++		switch (animal->kind.animal) {
++		case GERBIL:
++			printf(" gerbil");
++			break;
++		case CAT:
++			printf(" cat");
++			break;
++		case SNAKE:
++			printf(" snake");
++			break;
++		default:
++			abort();
++		}
++		printf(" (%" PRIu64 ")", animal->key);
++		if (++count >= NR_LRU_PRINT)
++			break;
++	}
++	if (!count)
++		printf(" <none>");
++	printf("\n");
++}
++
+ static
+ void do_print_output(void)
+ {
+@@ -66,6 +100,7 @@
+ 	printf("Flowers: %" PRIu64 "\n", vegetation.flowers);
+ 	printf("Trees: %" PRIu64 "\n", vegetation.trees);
+ 	pthread_mutex_unlock(&vegetation.lock);
++	print_lru_list();
+ 	printf("-------- (type 'm' for menu, 'q' to quit game) -------\n");
+ 
+ 	rcu_read_unlock();
+diff -urN urcu-tutorial/urcu-game/urcu-game.c urcu-tutorial/urcu-game-lru/urcu-game.c
+--- urcu-tutorial/urcu-game/urcu-game.c	2013-10-17 21:31:41.446554084 -0400
++++ urcu-tutorial/urcu-game-lru/urcu-game.c	2013-10-17 21:11:09.048275568 -0400
+@@ -28,7 +28,11 @@
+ 
+ int verbose, exit_program, clear_screen_enable = 1;
+ 
+-struct live_animals live_animals;
++struct live_animals live_animals = {
++	.lru_lock = PTHREAD_MUTEX_INITIALIZER,
++	.lru_head = CDS_LIST_HEAD_INIT(live_animals.lru_head),
++};
++
+ struct vegetation vegetation = {
+ 	.flowers = DEFAULT_VEGETATION_FLOWERS,
+ 	.trees = DEFAULT_VEGETATION_TREES,
+diff -urN urcu-tutorial/urcu-game/urcu-game.h urcu-tutorial/urcu-game-lru/urcu-game.h
+--- urcu-tutorial/urcu-game/urcu-game.h	2013-10-17 21:31:41.446554084 -0400
++++ urcu-tutorial/urcu-game-lru/urcu-game.h	2013-10-17 21:18:58.999619128 -0400
+@@ -20,8 +20,10 @@
+ #include <stdio.h>
+ #include <urcu/rculfhash.h>
+ #include <urcu-call-rcu.h>
++#include <urcu/rculist.h>
+ 
+ #define URCU_GAME_REFRESH_PERIOD	1	/* seconds */
++#define NR_LRU_PRINT			3
+ 
+ enum animal_types {
+ 	GERBIL = 	0,
+@@ -88,6 +90,8 @@
+ 	struct cds_lfht_node kind_node;	/* node in kind hash table */
+ 	struct cds_lfht_node all_node;	/* node in all animals hash table */
+ 	struct rcu_head rcu_head;	/* Delayed reclaim */
++
++	struct cds_list_head lru_node;
+ };
+ 
+ /*
+@@ -102,6 +106,9 @@
+ 
+ 	struct cds_lfht *all;
+ 
++	pthread_mutex_t lru_lock;
++	struct cds_list_head lru_head;
++
+ 	unsigned long ht_seed;
+ };
+ 
+diff -urN urcu-tutorial/urcu-game/urcu-game-logic.c urcu-tutorial/urcu-game-lru/urcu-game-logic.c
+--- urcu-tutorial/urcu-game/urcu-game-logic.c	2013-10-17 21:31:41.446554084 -0400
++++ urcu-tutorial/urcu-game-lru/urcu-game-logic.c	2013-10-17 21:24:51.043127515 -0400
+@@ -158,6 +158,12 @@
+ 	}
+ 	delret = cds_lfht_del(ht, &animal->kind_node);
+ 	assert(delret == 0);
++
++	/* Remove from LRU list of birth */
++	pthread_mutex_lock(&live_animals.lru_lock);
++	cds_list_del_rcu(&animal->lru_node);
++	pthread_mutex_unlock(&live_animals.lru_lock);
++
+ 	call_rcu(&animal->rcu_head, free_animal);
+ }
+ 
+@@ -405,6 +411,12 @@
+ 			abort();
+ 		/* Successfully added */
+ 		parent->nr_pregnant--;
++
++		/* Add to LRU list of birth (head position) */
++		pthread_mutex_lock(&live_animals.lru_lock);
++		cds_list_add_rcu(&child->lru_node, &live_animals.lru_head);
++		pthread_mutex_unlock(&live_animals.lru_lock);
++
+ 		if (!god)
+ 			unlock_pair(parent, child);
+ 		else
