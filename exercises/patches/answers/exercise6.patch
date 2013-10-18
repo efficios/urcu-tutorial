@@ -1,0 +1,186 @@
+diff --git a/urcu-game/urcu-game-config.c b/urcu-game/urcu-game-config.c
+index aeb7887..f199490 100644
+--- a/urcu-game/urcu-game-config.c
++++ b/urcu-game/urcu-game-config.c
+@@ -34,9 +34,14 @@ pthread_mutex_t config_mutex = PTHREAD_MUTEX_INITIALIZER;
+ 
+ struct urcu_game_config *urcu_game_config_get(void)
+ {
++	struct urcu_game_config *config;
++
+ 	assert(rcu_read_ongoing());
+ 
+-	return rcu_dereference(current_config);
++	config = rcu_dereference(current_config);
++
++	assert(!config || config->rcu_debug == RCU_DEBUG_ALLOC);
++	return config;
+ }
+ 
+ /*
+@@ -70,6 +75,7 @@ void urcu_game_config_update_end(struct urcu_game_config *new_config)
+ 	pthread_mutex_unlock(&config_mutex);
+ 	if (old_config) {
+ 		synchronize_rcu();
++		memset(old_config, RCU_DEBUG_FREE, sizeof(*old_config));
+ 		free(old_config);
+ 	}
+ }
+@@ -77,6 +83,7 @@ void urcu_game_config_update_end(struct urcu_game_config *new_config)
+ void urcu_game_config_update_abort(struct urcu_game_config *new_config)
+ {
+ 	pthread_mutex_unlock(&config_mutex);
++	memset(new_config, RCU_DEBUG_FREE, sizeof(*new_config));
+ 	free(new_config);
+ }
+ 
+@@ -104,6 +111,7 @@ void init_game_config(void)
+ 	new_config->snake.animal = SNAKE;
+ 	new_config->snake.diet = DIET_GERBIL | DIET_CAT;
+ 	new_config->snake.max_pregnant = 1;
++	new_config->rcu_debug = RCU_DEBUG_ALLOC;
+ 
+ 	urcu_game_config_update_end(new_config);
+ }
+diff --git a/urcu-game/urcu-game-logic.c b/urcu-game/urcu-game-logic.c
+index 32c8865..2fdca01 100644
+--- a/urcu-game/urcu-game-logic.c
++++ b/urcu-game/urcu-game-logic.c
+@@ -149,6 +149,7 @@ void free_animal(struct rcu_head *head)
+ 	struct animal *animal;
+ 
+ 	animal = caa_container_of(head, struct animal, rcu_head);
++	memset(animal, RCU_DEBUG_FREE, sizeof(*animal));
+ 	free(animal);
+ }
+ 
+@@ -187,6 +188,8 @@ void kill_animal(struct animal *animal)
+ 	delret = cds_lfht_del(live_animals.all, &animal->all_node);
+ 	assert(delret == 0);
+ 	call_rcu(&animal->rcu_head, free_animal);
++	/* RCU read-side lock postpones execution of free_animal() */
++	assert(animal->rcu_debug == RCU_DEBUG_ALLOC);
+ }
+ 
+ /*
+@@ -391,6 +394,7 @@ int try_birth(struct animal *parent, uint64_t new_key, int god)
+ 	child->stamina = rand_r(&thread_rand_seed)
+ 		% child->kind.max_birth_stamina;
+ 	child->nr_pregnant = 0;
++	child->rcu_debug = RCU_DEBUG_ALLOC;
+ 	pthread_mutex_init(&child->lock, NULL);
+ 
+ 	assert(child->kind.max_pregnant > 0);
+@@ -467,6 +471,7 @@ struct animal *find_animal(uint64_t key)
+ 	if (node)
+ 		animal = caa_container_of(node,
+ 			struct animal, all_node);
++	assert(!animal || animal->rcu_debug == RCU_DEBUG_ALLOC);
+ 	return animal;
+ }
+ 
+diff --git a/urcu-game/urcu-game.h b/urcu-game/urcu-game.h
+index a66ea80..ba2bf09 100644
+--- a/urcu-game/urcu-game.h
++++ b/urcu-game/urcu-game.h
+@@ -23,6 +23,9 @@
+ 
+ #define URCU_GAME_REFRESH_PERIOD	1	/* seconds */
+ 
++#define RCU_DEBUG_ALLOC			0x41
++#define RCU_DEBUG_FREE			0x42
++
+ enum animal_types {
+ 	GERBIL = 	0,
+ 	CAT = 		1,
+@@ -45,9 +48,8 @@ struct animal_kind {
+ 	unsigned int diet;
+ };
+ 
+-#define DEFAULT_ISLAND_SIZE			\
+-	2 * (DEFAULT_VEGETATION_FLOWERS + DEFAULT_VEGETATION_TREES)
+-#define DEFAULT_STEP_DELAY			1000
++#define DEFAULT_ISLAND_SIZE			10
++#define DEFAULT_STEP_DELAY			0
+ #define DEFAULT_GERBIL_MAX_BIRTH_STAMINA	70
+ #define DEFAULT_CAT_MAX_BIRTH_STAMINA		80
+ #define DEFAULT_SNAKE_MAX_BIRTH_STAMINA		30
+@@ -62,6 +64,8 @@ struct urcu_game_config {
+ 	struct animal_kind gerbil;
+ 	struct animal_kind cat;
+ 	struct animal_kind snake;
++
++	unsigned int rcu_debug;
+ };
+ 
+ enum animal_sex {
+@@ -88,6 +92,8 @@ struct animal {
+ 	struct cds_lfht_node kind_node;	/* node in kind hash table */
+ 	struct cds_lfht_node all_node;	/* node in all animals hash table */
+ 	struct rcu_head rcu_head;	/* Delayed reclaim */
++
++	unsigned int rcu_debug;
+ };
+ 
+ /*
+diff --git a/urcu-game/worker-thread.c b/urcu-game/worker-thread.c
+index ad15e0f..7f974fb 100644
+--- a/urcu-game/worker-thread.c
++++ b/urcu-game/worker-thread.c
+@@ -39,7 +39,7 @@ unsigned long get_nr_worker_threads(void)
+ }
+ 
+ static
+-int do_work(struct urcu_game_work *work)
++int do_work(struct urcu_game_work *work, uint64_t *count)
+ {
+ 	struct animal *first, *second;
+ 
+@@ -59,8 +59,12 @@ int do_work(struct urcu_game_work *work)
+ 	 */
+ 	if (!first) {
+ 		first = second;
+-		if (!first)
++		if (!first) {
++			create_animals(GERBIL, 1);
++			create_animals(CAT, 1);
++			create_animals(SNAKE, 1);
+ 			goto end;
++		}
+ 		/*
+ 		 * Cannot have twice the same animal.
+ 		 */
+@@ -76,6 +80,9 @@ int do_work(struct urcu_game_work *work)
+ 	if (try_mate(first, second))
+ 		DBG("mate success");
+ 
++	if (((*count)++ % 1024) == 0)
++		apocalypse();
++
+ end:
+ 	rcu_read_unlock();
+ 	return 0;
+@@ -86,6 +93,7 @@ void *worker_thread_fct(void *data)
+ {
+ 	struct worker_thread *wt = data;
+ 	int exit_thread = 0;
++	uint64_t count = 0;
+ 
+ 	DBG("In worker thread id=%lu.", wt->id);
+ 
+@@ -100,12 +108,13 @@ void *worker_thread_fct(void *data)
+ 		node = __cds_wfcq_dequeue_blocking(&wt->q_head, &wt->q_tail);
+ 		if (!node) {
+ 			/* Wait for work */
+-			poll(NULL, 0, 100);	/* 100ms delay */
++			//poll(NULL, 0, 100);	/* 100ms delay */
++			sched_yield();
+ 			continue;
+ 		}
+ 		uatomic_dec(&wt->q_len);
+ 		work = caa_container_of(node, struct urcu_game_work, q_node);
+-		exit_thread = do_work(work);
++		exit_thread = do_work(work, &count);
+ 		free(work);
+ 	}
+ 
