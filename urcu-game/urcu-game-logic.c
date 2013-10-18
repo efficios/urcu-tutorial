@@ -162,8 +162,6 @@ void kill_animal(struct animal *animal)
 	int delret;
 	struct cds_lfht *ht;
 
-	delret = cds_lfht_del(live_animals.all, &animal->all_node);
-	assert(delret == 0);
 	switch (animal->kind.animal) {
 	case GERBIL:
 		ht = live_animals.gerbil;
@@ -178,6 +176,15 @@ void kill_animal(struct animal *animal)
 		abort();
 	}
 	delret = cds_lfht_del(ht, &animal->kind_node);
+	assert(delret == 0);
+	/*
+	 * We need to remove animal from "all" hash table _after_
+	 * removing it from the kind hash table, to match the fact that
+	 * existence in the "all" hash table defines the life-time of
+	 * the object. Removing in the reverse order can trigger an
+	 * abort() in the check for the ht_kind add_unique.
+	 */
+	delret = cds_lfht_del(live_animals.all, &animal->all_node);
 	assert(delret == 0);
 	call_rcu(&animal->rcu_head, free_animal);
 }
