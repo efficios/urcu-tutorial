@@ -1,19 +1,131 @@
-RCU exercises
+Answer to RCU exercises
 Mathieu Desnoyers, October 17th, 2013
+
+
+Answers are provided far below.
+
+Don't go look at them before preparing your own answer! ;-)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+No cheating !  :-P
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 * Exercise 1
 
-Unbalanced RCU read-side lock. Experience hang with: menu/god/create
-gerbil, followed by exiting all menus, and then quitting the game (q).
+Experience hang with: menu/god/create gerbil, followed by exiting all
+menus, and then quitting the game (q).
 
-Debug with gdb, explain lockup scenario.
+Debug with gdb, lockup scenario:
+
+Unbalanced RCU read-side lock. A reverse diff of
+patches/questions/exercise1.patch gives the answer.
 
 
 * Exercise 2
 
 Modify game configuration to use call_rcu() worker thread rather than
 synchronize_rcu() for reclaim.
+
+answers/exercise2/ has the answer implemented.
 
 
 * Exercise 3
@@ -33,17 +145,24 @@ Thread B:
     - rcu_read_lock()
     - lock print_output_mutex
 
+A reverse diff of patches/questions/exercise3.patch reveals the answer.
+
 
 * Exercise 4
 
 Modify game to use QSBR (urcu-qsbr.h) flavor rather than read lock
 (urcu.h) flavor.
 
+Answer implemented in answers/exercise4/
+
 
 * Exercise 5
 
 Implement a RCU list of most recently born living animals. Last 3
 animals' key are printed in output summary (RCU read-side).
+
+Answer implemented in answers/exercise5/
+
 
 * Exercise 6
 
@@ -53,3 +172,113 @@ matching the expected logic in try_birth().
 
 Diagnosing this issue requires stress-tests: small hash table, very
 frequent updates.
+
+Answer revealed by reversed diff of patches/questions/exercise6.patch
+
+
+I hope you enjoyed this training !
+
+Mathieu Desnoyers
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Answers are provided far above.
+
+Don't go look at them unless you want to check your answer! ;-)

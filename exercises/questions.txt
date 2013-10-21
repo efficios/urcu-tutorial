@@ -1,0 +1,63 @@
+RCU tutorial exercise questions
+Mathieu Desnoyers, October 17th, 2013
+
+Exercise questions for URCU tutorial.
+
+
+* Exercise 1
+
+% cd questions/exercice1/
+% make
+% ./urcu-game
+
+Use game menu/god/create gerbil, followed by exiting all menus, and then
+quitting the game (q).
+
+Can you explain and debug this lockup ?
+
+
+* Exercise 2
+
+% cd questions/exercice2/
+
+Modify game configuration (urcu-game-config.c, urcu-game.h) to use
+call_rcu() worker thread rather than synchronize_rcu() for reclaim.
+
+
+* Exercise 3
+
+% cd questions/exercice3/
+
+A deadlock has been added to this code. Can you spot it and explain the
+deadlock scenario ?
+
+
+* Exercise 4
+
+% cd questions/exercice4/
+
+Modify game to use QSBR (urcu-qsbr.h) flavor rather than read lock
+(urcu.h) flavor.
+
+
+* Exercise 5
+
+% cd questions/exercice5/
+
+Implement a RCU list of most recently born living animals. Last 3
+animals' key are printed in output summary (RCU read-side).
+
+
+* Exercise 6
+
+% cd questions/exercice6/
+
+The program seems to be solid through normal user interactions, but is
+reported to fail once in a blue moon. Modify the code at will to
+accelerate identification of the failure. Identify and explain the
+failure.
+
+
+I hope you enjoyed this training !
+
+Mathieu Desnoyers
