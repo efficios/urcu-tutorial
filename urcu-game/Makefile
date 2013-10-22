@@ -13,7 +13,7 @@
 
 CC = gcc
 CFLAGS = -g -O2 -Wall
-LIBS = -lurcu -lurcu-cds -lpthread
+LIBS = -lurcu -lurcu-cds -lurcu-common -lpthread
 
 HEADERS = urcu-game.h urcu-game-config.h worker-thread.h ht-hash.h
 
