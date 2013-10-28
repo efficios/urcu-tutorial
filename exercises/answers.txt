@@ -111,8 +111,9 @@ No cheating !  :-P
 
 * Exercise 1
 
-Experience hang with: menu/god/create gerbil, followed by exiting all
-menus, and then quitting the game (q).
+Use game menu/god/create gerbil. Then, create snakes. Exit all menus
+(back to RCU Island Summary), and wait until you observe that at least
+one gerbil has been eaten. Then quit the game (q).
 
 Debug with gdb, lockup scenario:
 

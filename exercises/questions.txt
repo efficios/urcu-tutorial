@@ -10,8 +10,9 @@ Exercise questions for URCU tutorial.
 % make
 % ./urcu-game
 
-Use game menu/god/create gerbil, followed by exiting all menus, and then
-quitting the game (q).
+Use game menu/god/create gerbil. Then, create snakes. Exit all menus
+(back to RCU Island Summary), and wait until you observe that at least
+one gerbil has been eaten. Then quit the game (q).
 
 Can you explain and debug this lockup ?
 
